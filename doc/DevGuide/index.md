@@ -2,6 +2,7 @@
 
 *  **[Samples](Samples.md)** - List of samples that demonstrate how to use various components
 *  **[Using SMB](UsingSmb.md)** - How to use the SMB protocol implementation
+*  **[PowerShell SMB2 + Remote Registry](PowerShellSmb2Registry.md)** - Backup-privilege-first module design
 *  **[Versioning](Versioning.md)** - Describes how Titanis uses versioning
 *  **[Using Services](Services.md)** - Explains how various Titanis components delegate tasks to service components
 *  **[Using Source Generation](SourceGenerator.md)**
