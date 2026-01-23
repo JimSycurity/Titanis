@@ -4,6 +4,7 @@ using System.Linq;
 using System.Management.Automation;
 using System.Text;
 using System.Threading.Tasks;
+using Winterop = Titanis.Winterop;
 
 namespace Titanis.Smb2.PowerShell
 {
@@ -24,7 +25,7 @@ namespace Titanis.Smb2.PowerShell
 	{
 		internal override async Task<Smb2OpenFileObjectBase> Create(Smb2Client smb, UncPath uncPath, CancellationToken cancellationToken)
 		{
-			return await smb.CreateDirectoryAsync(uncPath, cancellationToken);
+			return await smb.CreateDirectoryAsync(uncPath, cancellationToken).ConfigureAwait(false);
 		}
 	}
 
@@ -40,19 +41,19 @@ namespace Titanis.Smb2.PowerShell
 				OplockLevel = Smb2OplockLevel.None,
 				ImpersonationLevel = Smb2ImpersonationLevel.Impersonation,
 				DesiredAccess = (uint)Smb2FileAccessRights.WriteAttributes,
-				FileAttributes = WinFileInfo.FileAttributes.Normal,
+				FileAttributes = Winterop.FileAttributes.Normal,
 				ShareAccess = Smb2ShareAccess.ReadWriteDelete,
 				CreateDisposition = Smb2CreateDisposition.OpenIf,
 				CreateOptions = Smb2FileCreateOptions.Directory | Smb2FileCreateOptions.OpenReparsePoint,
 				RequestMaximalAccess = true,
 				QueryOnDiskId = true
-			}, FileAccess.Read, cancellationToken);
+			}, FileAccess.Read, cancellationToken).ConfigureAwait(false);
 			//if (file.CreateAction != Pdus.Smb2CreateAction.Created)
 			//	this.WriteVerbose($"Directory {this.UncPath} already existed");
 			//else
 			//	this.WriteVerbose($"Directory {this.UncPath} created");
 
-			await file.SetVolumeMountPointInfoAsync(this.MountPointTarget, this.MountPointTarget, cancellationToken);
+			await file.SetVolumeMountPointInfoAsync(this.MountPointTarget, this.MountPointTarget, cancellationToken).ConfigureAwait(false);
 			return file;
 		}
 	}
@@ -72,23 +73,23 @@ namespace Titanis.Smb2.PowerShell
 				OplockLevel = Smb2OplockLevel.None,
 				ImpersonationLevel = Smb2ImpersonationLevel.Impersonation,
 				DesiredAccess = (uint)Smb2FileAccessRights.WriteAttributes,
-				FileAttributes = WinFileInfo.FileAttributes.Normal,
+				FileAttributes = Winterop.FileAttributes.Normal,
 				ShareAccess = Smb2ShareAccess.ReadWriteDelete,
 				CreateDisposition = Smb2CreateDisposition.OpenIf,
 				CreateOptions = Smb2FileCreateOptions.Directory | Smb2FileCreateOptions.OpenReparsePoint,
 				RequestMaximalAccess = true,
 				QueryOnDiskId = true
-			}, FileAccess.Read, cancellationToken);
+			}, FileAccess.Read, cancellationToken).ConfigureAwait(false);
 			//if (file.CreateAction != Pdus.Smb2CreateAction.Created)
 			//	this.WriteVerbose($"Directory {this.UncPath} already existed");
 			//else
 			//	this.WriteVerbose($"Directory {this.UncPath} created");
 
 			await file.SetSymlinkInfoAsync(
-				this.Relative ? WinFileInfo.SymbolicLinkFlags.RelativePath : WinFileInfo.SymbolicLinkFlags.FullPathName,
+				this.Relative ? Winterop.SymbolicLinkFlags.RelativePath : Winterop.SymbolicLinkFlags.FullPathName,
 				this.TargetPath,
 				this.TargetPath,
-				cancellationToken);
+				cancellationToken).ConfigureAwait(false);
 			return file;
 		}
 	}
@@ -108,23 +109,23 @@ namespace Titanis.Smb2.PowerShell
 				OplockLevel = Smb2OplockLevel.None,
 				ImpersonationLevel = Smb2ImpersonationLevel.Impersonation,
 				DesiredAccess = (uint)Smb2FileAccessRights.WriteAttributes,
-				FileAttributes = WinFileInfo.FileAttributes.Normal,
+				FileAttributes = Winterop.FileAttributes.Normal,
 				ShareAccess = Smb2ShareAccess.ReadWriteDelete,
 				CreateDisposition = Smb2CreateDisposition.OpenIf,
 				CreateOptions = Smb2FileCreateOptions.NonDirectory | Smb2FileCreateOptions.OpenReparsePoint,
 				RequestMaximalAccess = true,
 				QueryOnDiskId = true
-			}, FileAccess.Read, cancellationToken);
+			}, FileAccess.Read, cancellationToken).ConfigureAwait(false);
 			//if (file.CreateAction != Pdus.Smb2CreateAction.Created)
 			//	this.WriteVerbose($"Directory {this.UncPath} already existed");
 			//else
 			//	this.WriteVerbose($"Directory {this.UncPath} created");
 
 			await file.SetSymlinkInfoAsync(
-				this.Relative ? WinFileInfo.SymbolicLinkFlags.RelativePath : WinFileInfo.SymbolicLinkFlags.FullPathName,
+				this.Relative ? Winterop.SymbolicLinkFlags.RelativePath : Winterop.SymbolicLinkFlags.FullPathName,
 				this.TargetPath,
 				this.TargetPath,
-				cancellationToken);
+				cancellationToken).ConfigureAwait(false);
 			return file;
 		}
 	}

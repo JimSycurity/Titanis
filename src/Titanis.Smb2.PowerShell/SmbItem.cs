@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Titanis.WinFileInfo;
+using Winterop = Titanis.Winterop;
 
 namespace Titanis.Smb2.PowerShell
 {
@@ -26,14 +26,14 @@ namespace Titanis.Smb2.PowerShell
 		public ulong Size => this.entry.Size;
 		public string SizeText => Titanis.Cli.FileSizeFormatter.FormatValue(this.entry.Size, "H2");
 		public ulong SizeOnDisk => this.entry.SizeOnDisk;
-		public WinFileInfo.FileAttributes FileAttributes => this.entry.FileAttributes;
-		public bool IsDirectory => (0 != (this.FileAttributes & WinFileInfo.FileAttributes.Directory));
-		public bool IsReparsePoint => (0 != (this.FileAttributes & WinFileInfo.FileAttributes.ReparsePoint));
+		public Winterop.FileAttributes FileAttributes => this.entry.FileAttributes;
+		public bool IsDirectory => (0 != (this.FileAttributes & Winterop.FileAttributes.Directory));
+		public bool IsReparsePoint => (0 != (this.FileAttributes & Winterop.FileAttributes.ReparsePoint));
 
 		public string FileAttributesText => FileAttributeFormatter.FormatValue(this.FileAttributes);
 		public string? ShortName => this.entry.ShortName;
 		public ulong FileId => this.entry.FileId;
-		public ReparseTag ReparseTag => this.entry.ReparseTag;
+		public Winterop.ReparseTag ReparseTag => this.entry.ReparseTag;
 		public string LinkTarget => this.entry.LinkTarget;
 
 		public string ItemClass
@@ -44,11 +44,11 @@ namespace Titanis.Smb2.PowerShell
 				{
 					if (this.IsReparsePoint)
 					{
-						if (this.ReparseTag == ReparseTag.SymbolicLink)
+						if (this.ReparseTag == Winterop.ReparseTag.SymbolicLink)
 						{
 							return SmbItemClasses.SymlinkDir;
 						}
-						else if (this.ReparseTag == ReparseTag.MountPoint)
+						else if (this.ReparseTag == Winterop.ReparseTag.MountPoint)
 						{
 							if (this.LinkTarget?.StartsWith(@"\??\Volume") ?? false)
 								return SmbItemClasses.MountPoint;
@@ -63,7 +63,7 @@ namespace Titanis.Smb2.PowerShell
 				{
 					if (this.IsReparsePoint)
 					{
-						if (this.ReparseTag == ReparseTag.SymbolicLink)
+						if (this.ReparseTag == Winterop.ReparseTag.SymbolicLink)
 						{
 							return SmbItemClasses.Symlink;
 						}
