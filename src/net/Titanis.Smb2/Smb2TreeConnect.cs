@@ -330,6 +330,9 @@ namespace Titanis.Smb2
 				createInfo = new Smb2CreateInfo();
 			}
 
+			if (this.Session.RequiredCreateOptions != Smb2FileCreateOptions.None)
+				createInfo.CreateOptions |= this.Session.RequiredCreateOptions;
+
 			if (fileName == null)
 				throw new ArgumentNullException(nameof(fileName));
 

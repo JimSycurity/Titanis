@@ -26,9 +26,10 @@ The module must treat backup/restore semantics as non-optional:
 - SMB2: set `OpenForBackupIntent` on every create/open.
 - MS-RRP: set `BackupRestore` on every key open/creation.
 - Auth token: ensure SeBackupPrivilege and SeRestorePrivilege are enabled after
-  logon for the remote account. Techniques exist and have been used in
-  `C:\Data\Repos\BackupOperatorToolkit`; the module should align with those
-  patterns.
+  logon for the remote account. The module will auto-grant missing privileges
+  via LSARPC and re-auth once to ensure they are enabled in the token. If the
+  privileges are still missing after re-auth, the connection fails with a clear
+  error.
 
 ## Protocol Flags Summary
 - SMB2: FILE_OPEN_FOR_BACKUP_INTENT
@@ -122,9 +123,8 @@ types, but do not require them for module core behavior.
 ## Open Questions / Risks
 1. How to guarantee server-side privileges are enabled for the remote account
    across SMB2 and MS-RRP flows.
-   Answer: There are known techniques for enabling privileges, some of which are used in
-   `C:\Data\Repos\BackupOperatorToolkit`. The module should adopt those patterns and
-   surface explicit errors when privileges cannot be enabled.
+   Answer: The module auto-grants SeBackupPrivilege and SeRestorePrivilege using LSARPC,
+   forces a re-auth, and fails fast if the privileges are still missing.
 2. Whether any SMB2 or MS-RRP operations require additional flags or access
    rights beyond backup/restore intent.
    Answer: In testing with BackupOperatorToolkit, no additional flags were required beyond

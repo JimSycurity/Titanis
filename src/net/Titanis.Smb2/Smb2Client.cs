@@ -54,6 +54,7 @@ namespace Titanis.Smb2
 		public Smb2ConnectionOptions DefaultConnectionOptions { get; set; } = new Smb2ConnectionOptions();
 		public Smb2SessionOptions DefaultSessionOptions { get; set; } = new Smb2SessionOptions(false);
 		public Smb2ShareOptions DefaultShareOptions { get; set; } = new Smb2ShareOptions(false);
+		public Smb2FileCreateOptions RequiredCreateOptions { get; set; }
 
 		/// <summary>
 		/// Provides RNG services throughout the implementation.
@@ -249,36 +250,64 @@ namespace Titanis.Smb2
 			var connGroup = await this.GetConnectionAsync(serverName, port, cancellationToken).ConfigureAwait(false);
 			var conn0 = connGroup.SelectConnection();
 
-			var authContext = this.credentialService.GetAuthContextForService(new ServicePrincipalName(ServiceClass, serverName), SecurityCapabilities.Integrity);
-
-			const int SpnegoRpcType = 9;
-			if (authContext == null)
-				throw new InvalidOperationException($"No credential is available for server `{serverName}`.");
-			else if (authContext.RpcAuthType != SpnegoRpcType)
+			AuthClientContext CreateAuthContext()
 			{
-				SpnegoClientContext spnego = new SpnegoClientContext();
-				spnego.Contexts.Add(authContext);
-				authContext = spnego;
-			}
+				var authContext = this.credentialService.GetAuthContextForService(new ServicePrincipalName(ServiceClass, serverName), SecurityCapabilities.Integrity);
 
-			var session = await conn0.AuthenticateAsync(authContext, options.MustEncryptData, null, 0, cancellationToken).ConfigureAwait(false);
-			this.traceCallback?.OnSessionAuthenticated(session);
-
-			this._sessions.Add(new SessionKey(new ConnectionKey(serverName, port)), session);
-
-			if (this.UseMultiChannel && conn0.Dialect >= Smb2Dialect.Smb3_1_1)
-			{
-				for (int i = 1; i < connGroup.connections.Count; i++)
+				const int SpnegoRpcType = 9;
+				if (authContext == null)
+					throw new InvalidOperationException($"No credential is available for server `{serverName}`.");
+				if (authContext.RpcAuthType != SpnegoRpcType)
 				{
-					var conn = connGroup.SelectConnection();
-					await session.EstablishNewChannel(conn, cancellationToken).ConfigureAwait(false);
+					SpnegoClientContext spnego = new SpnegoClientContext();
+					spnego.Contexts.Add(authContext);
+					authContext = spnego;
 				}
+
+				return authContext;
 			}
 
-			//var conn2 = await this.ConnectToAsync(serverName, port, false, cancellationToken).ConfigureAwait(false);
-			//await conn2.AuthenticateAsync(this.credentialService.GetAuthContextForServer(ResourceTypes.Server, serverName), false, session, cancellationToken).ConfigureAwait(false);
+			const int MaxAuthAttempts = 2;
+			for (int attempt = 0; attempt < MaxAuthAttempts; attempt++)
+			{
+				var authContext = CreateAuthContext();
+				var session = await conn0.AuthenticateAsync(authContext, options.MustEncryptData, null, 0, cancellationToken).ConfigureAwait(false);
+				session.RequiredCreateOptions = this.RequiredCreateOptions;
 
-			return session;
+				try
+				{
+					this.traceCallback?.OnSessionAuthenticated(session);
+				}
+				catch
+				{
+					await session.LogOffAsync(cancellationToken).ConfigureAwait(false);
+					throw;
+				}
+
+				if (session.RequiresReauth)
+				{
+					await session.LogOffAsync(cancellationToken).ConfigureAwait(false);
+					continue;
+				}
+
+				this._sessions.Add(new SessionKey(new ConnectionKey(serverName, port)), session);
+
+				if (this.UseMultiChannel && conn0.Dialect >= Smb2Dialect.Smb3_1_1)
+				{
+					for (int i = 1; i < connGroup.connections.Count; i++)
+					{
+						var conn = connGroup.SelectConnection();
+						await session.EstablishNewChannel(conn, cancellationToken).ConfigureAwait(false);
+					}
+				}
+
+				//var conn2 = await this.ConnectToAsync(serverName, port, false, cancellationToken).ConfigureAwait(false);
+				//await conn2.AuthenticateAsync(this.credentialService.GetAuthContextForServer(ResourceTypes.Server, serverName), false, session, cancellationToken).ConfigureAwait(false);
+
+				return session;
+			}
+
+			throw new InvalidOperationException($"Unable to establish session for `{serverName}` with required privileges.");
 		}
 		#endregion
 		#region Shares

@@ -45,6 +45,8 @@ namespace Titanis.Msrpc.Mslsar
 
 		public Task<LsaAccount> CreateAccount(SecurityIdentifier sid, CancellationToken cancellationToken)
 			=> this._lsaClient.CreateAccount(this._handle, sid, cancellationToken);
+		public Task<LsaAccount> CreateAccount(SecurityIdentifier sid, LsaAccountAccess access, CancellationToken cancellationToken)
+			=> this._lsaClient.CreateAccount(this._handle, sid, access, cancellationToken);
 		public Task<LsaAccount> OpenAccount(SecurityIdentifier sid, LsaAccountAccess access, CancellationToken cancellationToken)
 			=> this._lsaClient.OpenAccount(this._handle, sid, access, cancellationToken);
 		public Task<string> LookupPrivilege(long luid, CancellationToken cancellationToken)

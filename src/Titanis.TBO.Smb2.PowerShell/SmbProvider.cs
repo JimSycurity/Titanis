@@ -8,6 +8,7 @@ using System.Management.Automation.Remoting;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using Titanis.DceRpc.Client;
 using Titanis.Net;
 using Titanis.Security;
 using Titanis.Security.Kerberos;
@@ -326,20 +327,22 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		}
 	}
 
-	public partial class SmbProviderInfo : ProviderInfo
+	public partial class SmbProviderInfo : ProviderInfo, ISmb2TraceCallback
 	{
 		internal SmbProviderInfo(ProviderInfo providerInfo, SmbProvider provider) : base(providerInfo)
 		{
 			this.Provider = provider;
 
 			var socketService = new PlatformSocketService(this, null);
+			this._rpcClient = new RpcClient(socketService, this, this, null, null);
 			var client = new Smb2Client(
 				this,
 				socketService,
 				this,
-				null,
+				this,
 				null
 				);
+			client.RequiredCreateOptions = Smb2FileCreateOptions.OpenForBackupIntent;
 			this.SmbClient = client;
 		}
 

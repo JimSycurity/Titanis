@@ -208,6 +208,8 @@ namespace Titanis.Smb2
 
 		public bool SigningRequired { get; }
 		public bool MustEncryptData { get; }
+		internal Smb2FileCreateOptions RequiredCreateOptions { get; set; }
+		internal bool RequiresReauth { get; set; }
 
 		private List<Smb2TreeConnect> _openTrees = new List<Smb2TreeConnect>();
 
