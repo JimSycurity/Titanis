@@ -19,8 +19,8 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		protected abstract void ProcessRecord(SmbProviderInfo smb);
 	}
 
-	[Cmdlet(VerbsCommon.Set, "SmbConnectOptions")]
-	public class SetSmbConnectOptions : SmbCmdlet, IDynamicParameters
+	[Cmdlet(VerbsCommon.Set, "TBOSmbConnectOptions")]
+	public class SetTBOSmbConnectOptions : SmbCmdlet, IDynamicParameters
 	{
 		[Parameter(Position = 0)]
 		public string? ServerName { get; set; }

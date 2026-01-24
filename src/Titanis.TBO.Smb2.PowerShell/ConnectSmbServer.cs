@@ -8,8 +8,8 @@ using Titanis.Smb2;
 
 namespace Titanis.Tbo.Smb2.PowerShell
 {
-	[Cmdlet(VerbsCommunications.Connect, "SmbServer")]
-	public class ConnectSmbServer : PSCmdlet
+	[Cmdlet(VerbsCommunications.Connect, "TBOSmbServer")]
+	public class ConnectTBOSmbServer : PSCmdlet
 	{
 		[Parameter(Mandatory = true)]
 		public string ServerName { get; set; }
