@@ -1,14 +1,14 @@
-using Microsoft.PowerShell.Commands;
+using System.Text;
 using System.Management.Automation;
-using Titanis.Smb2;
 
 namespace Titanis.Tbo.Smb2.PowerShell
 {
-	internal class SmbGetContentParams:FileSystemContentReaderDynamicParameters
+	internal class SmbGetContentParams
 	{
-		const string TypeSetName = "Type";
+		[Parameter]
+		public SwitchParameter Raw { get; set; }
 
-		[Parameter(ParameterSetName = TypeSetName)]
-		public new SwitchParameter Raw { get; set; }
+		[Parameter]
+		public Encoding? Encoding { get; set; }
 	}
 }

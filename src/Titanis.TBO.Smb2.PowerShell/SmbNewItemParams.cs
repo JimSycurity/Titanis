@@ -18,7 +18,17 @@ namespace Titanis.Tbo.Smb2.PowerShell
 	{
 		internal override Task<Smb2OpenFileObjectBase> Create(Smb2Client smb, UncPath uncPath, CancellationToken cancellationToken)
 		{
-			throw new NotImplementedException();
+			return smb.CreateFileAsync(uncPath, new Smb2CreateInfo
+			{
+				CreateDisposition = Smb2CreateDisposition.Create,
+				DesiredAccess = (uint)Smb2FileAccessRights.DefaultCreateAccess,
+				ShareAccess = Smb2ShareAccess.ReadWrite,
+				FileAttributes = Winterop.FileAttributes.Normal,
+				CreateOptions = Smb2FileCreateOptions.NonDirectory
+					| Smb2FileCreateOptions.SynchronousIoNonalert
+					| Smb2FileCreateOptions.OpenForBackupIntent,
+				ImpersonationLevel = Smb2ImpersonationLevel.Impersonation,
+			}, FileAccess.ReadWrite, cancellationToken);
 		}
 	}
 

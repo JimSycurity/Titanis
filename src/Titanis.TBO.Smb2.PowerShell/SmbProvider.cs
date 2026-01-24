@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Management.Automation;
 using System.Management.Automation.Provider;
@@ -8,6 +9,8 @@ using System.Management.Automation.Remoting;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using Titanis;
+using Titanis.Cli;
 using Titanis.DceRpc.Client;
 using Titanis.Net;
 using Titanis.Security;
@@ -148,7 +151,9 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		{
 			if (itemTypeName != null)
 			{
-				if (itemTypeName.Equals(SmbItemClasses.Directory, StringComparison.OrdinalIgnoreCase))
+				if (itemTypeName.Equals(SmbItemClasses.File, StringComparison.OrdinalIgnoreCase))
+					return new SmbNewFileItemParams();
+				else if (itemTypeName.Equals(SmbItemClasses.Directory, StringComparison.OrdinalIgnoreCase))
 					return new SmbNewDirectoryItemParams();
 				else if (itemTypeName.Equals(SmbItemClasses.MountPoint, StringComparison.OrdinalIgnoreCase))
 					return new SmbMountPointItemParams();
@@ -159,7 +164,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				else if (itemTypeName.Equals(SmbItemClasses.Symlink, StringComparison.OrdinalIgnoreCase))
 					return new SmbSymlinkItemParams();
 			}
-			return null;
+			return new SmbNewFileItemParams();
 		}
 
 		protected override void NewItem(string path, string itemTypeName, object newItemValue)
@@ -168,7 +173,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 			this.BeginOperation(cancellationToken =>
 			{
-				var newItemParams = (SmbNewItemParams)this.DynamicParameters;
+				var newItemParams = this.DynamicParameters as SmbNewItemParams ?? new SmbNewFileItemParams();
 				return newItemParams.Create(this.SmbClient, uncPath, cancellationToken);
 			});
 		}
@@ -308,7 +313,18 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 		public IContentReader GetContentReader(string path)
 		{
-			throw new NotImplementedException();
+			UncPath uncPath = UncPath.Parse(path);
+
+			return this.BeginOperation(cancellationToken =>
+			{
+				var parms = this.DynamicParameters as SmbGetContentParams;
+				var encoding = parms?.Encoding ?? Encoding.UTF8;
+				var raw = parms?.Raw.IsPresent ?? false;
+
+				var file = this.smb.SmbClient.OpenFileReadAsync(uncPath, cancellationToken).Result;
+				var stream = file.GetStream(true);
+				return (IContentReader)new SmbContentReader(stream, encoding, raw);
+			});
 		}
 
 		public object GetContentReaderDynamicParameters(string path)
@@ -335,12 +351,18 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 			var socketService = new PlatformSocketService(this, null);
 			this._rpcClient = new RpcClient(socketService, this, this, null, null);
+
+			this._log = CreateLocalLog(out this._logWriter);
+			ISmb2TraceCallback traceCallback = this._log != null
+				? new Smb2Logger(this._log, this)
+				: this;
+
 			var client = new Smb2Client(
 				this,
 				socketService,
 				this,
-				this,
-				null
+				traceCallback,
+				this._log
 				);
 			client.RequiredCreateOptions = Smb2FileCreateOptions.OpenForBackupIntent;
 			this.SmbClient = client;
@@ -348,6 +370,8 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 		public SmbProvider Provider { get; }
 		public Smb2Client SmbClient { get; private set; }
+		private readonly ILog? _log;
+		private readonly TextWriter? _logWriter;
 
 		#region Connection parameters
 		private SmbConnectionParameters _defaultConnectParameters = SmbConnectionParameters.GetDefault();
@@ -388,6 +412,40 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			}
 		}
 		#endregion
+
+		private static ILog? CreateLocalLog(out TextWriter? writer)
+		{
+			writer = null;
+
+			var setting = Environment.GetEnvironmentVariable("TITANIS_TBO_LOG");
+			if (string.IsNullOrWhiteSpace(setting))
+				return null;
+
+			string path = setting;
+			if (setting.Equals("1", StringComparison.OrdinalIgnoreCase)
+				|| setting.Equals("true", StringComparison.OrdinalIgnoreCase)
+				|| setting.Equals("yes", StringComparison.OrdinalIgnoreCase))
+			{
+				path = Path.Combine(Path.GetTempPath(), "Titanis.TBO.Smb2.log");
+			}
+
+			var dir = Path.GetDirectoryName(path);
+			if (!string.IsNullOrWhiteSpace(dir))
+				Directory.CreateDirectory(dir);
+
+			writer = new StreamWriter(new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite))
+			{
+				AutoFlush = true
+			};
+
+			var log = new TextWriterLog(writer)
+			{
+				LogLevel = LogMessageSeverity.Diagnostic,
+				Format = LogFormat.TextWithTimestamp
+			};
+			log.WriteInfo($"TBO logging enabled: {path}");
+			return log;
+		}
 	}
 
 	partial class SmbProviderInfo : IClientCredentialService
@@ -416,6 +474,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			string? serverName = resourceType switch
 			{
 				ResourceTypes.Server when resourceKey is string server => server,
+				ResourceTypes.Service when resourceKey is ServicePrincipalName spn => spn.ServiceInstance,
 				ResourceTypes.SmbShare when resourceKey is UncPath sharePath => sharePath.ServerName,
 				_ => null
 			};
@@ -520,7 +579,24 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 		private void WriteWarning(string v)
 		{
-			throw new NotImplementedException();
+			if (string.IsNullOrWhiteSpace(v))
+				return;
+
+			try
+			{
+				System.Diagnostics.Trace.TraceWarning(v);
+			}
+			catch
+			{
+			}
+
+			try
+			{
+				Console.Error.WriteLine($"WARNING: {v}");
+			}
+			catch
+			{
+			}
 		}
 	}
 

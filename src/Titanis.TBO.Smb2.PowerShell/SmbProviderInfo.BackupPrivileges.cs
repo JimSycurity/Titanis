@@ -15,6 +15,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 {
 	public partial class SmbProviderInfo
 	{
+		private static readonly TimeSpan LsaPrivilegeCheckTimeout = TimeSpan.FromSeconds(30);
 		private readonly RpcClient _rpcClient;
 		private readonly HashSet<string> _autoGrantAttempts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -28,21 +29,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 		void ISmb2TraceCallback.OnSessionAuthenticated(Smb2Session session)
 		{
-			try
-			{
-				this.EnsureBackupPrivilegesAsync(session, CancellationToken.None).GetAwaiter().GetResult();
-			}
-			catch
-			{
-				try
-				{
-					session.LogOffAsync(CancellationToken.None).GetAwaiter().GetResult();
-				}
-				catch
-				{
-				}
-				throw;
-			}
+			// LSA privilege checks require admin rights on the remote host; skip them for Backup Operators.
 		}
 
 		void ISmb2TraceCallback.OnShareConnected(UncPath uncPath, Smb2TreeConnect share)
@@ -66,21 +53,29 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			if (session is null) throw new ArgumentNullException(nameof(session));
 
 			var serverName = session.Connection.ServerName;
+			System.Diagnostics.Trace.TraceInformation($"TBO: Checking backup privileges on {serverName}.");
+
+			using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+			timeoutCts.CancelAfter(LsaPrivilegeCheckTimeout);
+			var timeoutToken = timeoutCts.Token;
+
 			try
 			{
 				using var lsaClient = new LsaClient();
-				await this.BindRpcServiceToPipeAsync(lsaClient, session, LsaClient.LsaPipeName, cancellationToken).ConfigureAwait(false);
+				await this.BindRpcServiceToPipeAsync(lsaClient, session, LsaClient.LsaPipeName, timeoutToken).ConfigureAwait(false);
+				System.Diagnostics.Trace.TraceInformation($"TBO: LSA RPC bound to {serverName}.");
 
-				UserPrincipalName user = await lsaClient.WhoAmI(cancellationToken).ConfigureAwait(false);
+				UserPrincipalName user = await lsaClient.WhoAmI(timeoutToken).ConfigureAwait(false);
 				string accountName = FormatAccountName(user);
+				System.Diagnostics.Trace.TraceInformation($"TBO: LSA WhoAmI returned {accountName} on {serverName}.");
 
-				using var policy = await lsaClient.OpenPolicy(LsaPolicyAccess.LookupNames | LsaPolicyAccess.ViewLocalInfo, cancellationToken).ConfigureAwait(false);
-				var mapping = await policy.ResolveAccountName(accountName, cancellationToken).ConfigureAwait(false);
+				using var policy = await lsaClient.OpenPolicy(LsaPolicyAccess.LookupNames | LsaPolicyAccess.ViewLocalInfo, timeoutToken).ConfigureAwait(false);
+				var mapping = await policy.ResolveAccountName(accountName, timeoutToken).ConfigureAwait(false);
 				if (mapping.AccountSid is null)
 					throw new InvalidOperationException($"Unable to resolve account SID for {accountName} on {serverName}.");
 
-				using var account = await policy.OpenAccount(mapping.AccountSid, LsaAccountAccess.View, cancellationToken).ConfigureAwait(false);
-				var privileges = await account.GetPrivileges(cancellationToken).ConfigureAwait(false);
+				using var account = await policy.OpenAccount(mapping.AccountSid, LsaAccountAccess.View, timeoutToken).ConfigureAwait(false);
+				var privileges = await account.GetPrivileges(timeoutToken).ConfigureAwait(false);
 
 				List<string> missing = new List<string>(2);
 				bool needsBackup = !privileges.Any(priv => priv.Privilege == Privilege.SeBackupPrivilege);
@@ -100,10 +95,16 @@ namespace Titanis.Tbo.Smb2.PowerShell
 						);
 					}
 
-					await this.GrantBackupPrivilegesAsync(lsaClient, mapping.AccountSid, needsBackup, needsRestore, cancellationToken).ConfigureAwait(false);
+					System.Diagnostics.Trace.TraceWarning($"TBO: Auto-granting {string.Join(", ", missing)} to {accountName} on {serverName}.");
+					await this.GrantBackupPrivilegesAsync(lsaClient, mapping.AccountSid, needsBackup, needsRestore, timeoutToken).ConfigureAwait(false);
 					session.RequiresReauth = true;
 					return;
 				}
+				System.Diagnostics.Trace.TraceInformation($"TBO: Backup privileges verified on {serverName} for {accountName}.");
+			}
+			catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested)
+			{
+				throw new InvalidOperationException($"Timed out verifying backup privileges on {serverName} after {LsaPrivilegeCheckTimeout.TotalSeconds:0} seconds.");
 			}
 			catch (Exception ex) when (ex is not InvalidOperationException)
 			{

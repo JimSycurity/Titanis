@@ -25,11 +25,9 @@ This note describes a mixed provider/cmdlet design that enforces those rules.
 The module must treat backup/restore semantics as non-optional:
 - SMB2: set `OpenForBackupIntent` on every create/open.
 - MS-RRP: set `BackupRestore` on every key open/creation.
-- Auth token: ensure SeBackupPrivilege and SeRestorePrivilege are enabled after
-  logon for the remote account. The module will auto-grant missing privileges
-  via LSARPC and re-auth once to ensure they are enabled in the token. If the
-  privileges are still missing after re-auth, the connection fails with a clear
-  error.
+- Auth token: the module assumes SeBackupPrivilege and SeRestorePrivilege are
+  already enabled for the remote account. It does not attempt LSARPC privilege
+  checks or auto-grant (Backup Operators are not local admins).
 
 ## Protocol Flags Summary
 - SMB2: FILE_OPEN_FOR_BACKUP_INTENT
@@ -60,8 +58,12 @@ The module must treat backup/restore semantics as non-optional:
 - A shared connection context stores credentials, target host, and defaults.
 - A single policy flag indicates "backup-only mode"; this must be enforced for
   every operation and cannot be disabled by users.
-- The connection context is responsible for enabling SeBackupPrivilege and
-  SeRestorePrivilege on the remote token immediately after logon.
+
+### Local Logging
+Set `TITANIS_TBO_LOG` to enable SMB2 trace logging for the provider:
+- `TITANIS_TBO_LOG=1` (or `true`/`yes`) writes to `%TEMP%\Titanis.TBO.Smb2.log`.
+- `TITANIS_TBO_LOG=<path>` writes to the specified file.
+Logs include connect/session/share events and DFS referral activity.
 
 ## SMB2 Provider (Backup-Only)
 Provider operations must set backup intent on all opens/creates:
@@ -123,8 +125,9 @@ types, but do not require them for module core behavior.
 ## Open Questions / Risks
 1. How to guarantee server-side privileges are enabled for the remote account
    across SMB2 and MS-RRP flows.
-   Answer: The module auto-grants SeBackupPrivilege and SeRestorePrivilege using LSARPC,
-   forces a re-auth, and fails fast if the privileges are still missing.
+   Answer: The module does not perform LSARPC checks or auto-grant. It assumes the
+   account already has SeBackupPrivilege and SeRestorePrivilege enabled and relies
+   on protocol-level backup intent for access.
 2. Whether any SMB2 or MS-RRP operations require additional flags or access
    rights beyond backup/restore intent.
    Answer: In testing with BackupOperatorToolkit, no additional flags were required beyond
