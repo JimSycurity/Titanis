@@ -20,6 +20,11 @@ namespace Titanis.Smb2.Pdus
 		private readonly Smb2FileInfo _info;
 
 		internal override Smb2Command Command => Smb2Command.SetInfo;
+		public SecurityInfo Additional
+		{
+			get => this.body.additionalInfo;
+			set => this.body.additionalInfo = value;
+		}
 		/// <inheritdoc/>
 		internal sealed override int SendPayloadSize => this.body.bufferLength;
 
@@ -200,6 +205,25 @@ namespace Titanis.Smb2.Pdus
 		internal override void WriteTo(ByteWriter writer)
 		{
 			writer.WriteInt64LE(this.size);
+		}
+	}
+
+	// [MS-SMB2] § 2.2.39 SMB2 SET_INFO Request (Security)
+	sealed class SecurityDescriptorInfo : Smb2FileInfo
+	{
+		internal SecurityDescriptorInfo(byte[] securityDescriptor)
+		{
+			this._securityDescriptor = securityDescriptor ?? throw new ArgumentNullException(nameof(securityDescriptor));
+		}
+
+		private readonly byte[] _securityDescriptor;
+
+		internal sealed override Smb2FileInfoType InfoType => Smb2FileInfoType.Security;
+		internal sealed override FileInfoClass InfoClass => (FileInfoClass)0;
+
+		internal override void WriteTo(ByteWriter writer)
+		{
+			writer.WriteBytes(this._securityDescriptor);
 		}
 	}
 }
