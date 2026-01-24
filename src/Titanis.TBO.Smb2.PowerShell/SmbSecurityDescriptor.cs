@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Management.Automation;
 using System.Threading;
-using System.Threading.Tasks;
 using Titanis;
 using Titanis.Smb2;
 using Titanis.Winterop.Security;
@@ -40,7 +39,15 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 			foreach (var path in GetTargetPaths())
 			{
-				GetAsync(smb, path, format, this._cancelSource.Token).ConfigureAwait(false).GetAwaiter().GetResult();
+				var uncPath = ResolveToUncPath(path, this.ParameterSetName);
+				var securityDescriptor = ReadSecurityDescriptor(smb, uncPath, this._cancelSource.Token);
+				if (securityDescriptor == null)
+				{
+					this.WriteWarning($"No security descriptor was returned for '{uncPath}'.");
+					continue;
+				}
+
+				this.WriteObject(SecurityDescriptorHelpers.Format(securityDescriptor, format));
 			}
 		}
 
@@ -57,15 +64,12 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				: this.Path;
 		}
 
-		private async Task GetAsync(
+		private SecurityDescriptor? ReadSecurityDescriptor(
 			SmbProviderInfo smb,
-			string path,
-			SecurityDescriptorOutputFormat format,
+			UncPath uncPath,
 			CancellationToken cancellationToken)
 		{
-			var uncPath = ResolveToUncPath(path, this.ParameterSetName);
-
-			Smb2OpenFile? file = null;
+			Smb2OpenFileObjectBase? file = null;
 			try
 			{
 				var createInfo = new Smb2CreateInfo
@@ -78,24 +82,16 @@ namespace Titanis.Tbo.Smb2.PowerShell
 					FileAttributes = Winterop.FileAttributes.Normal
 				};
 
-				file = (Smb2OpenFile)await smb.SmbClient.CreateFileAsync(uncPath, createInfo, FileAccess.Read, cancellationToken).ConfigureAwait(false);
-				var securityDescriptor = await file.GetSecurityAsync(
+				file = smb.SmbClient.CreateFileAsync(uncPath, createInfo, FileAccess.Read, cancellationToken).GetAwaiter().GetResult();
+				return file.GetSecurityAsync(
 					SecurityInfo.Owner | SecurityInfo.Group | SecurityInfo.Dacl,
 					DefaultSecurityDescriptorBufferSize,
-					cancellationToken).ConfigureAwait(false);
-
-				if (securityDescriptor == null)
-				{
-					this.WriteWarning($"No security descriptor was returned for '{uncPath}'.");
-					return;
-				}
-
-				this.WriteObject(SecurityDescriptorHelpers.Format(securityDescriptor, format));
+					cancellationToken).GetAwaiter().GetResult();
 			}
 			finally
 			{
 				if (file != null)
-					await file.CloseAsync(cancellationToken).ConfigureAwait(false);
+					file.CloseAsync(cancellationToken).GetAwaiter().GetResult();
 			}
 		}
 
@@ -154,7 +150,8 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 			foreach (var path in GetTargetPaths())
 			{
-				SetAsync(smb, path, this._cancelSource.Token).ConfigureAwait(false).GetAwaiter().GetResult();
+				var uncPath = ResolveToUncPath(path, this.ParameterSetName);
+				WriteSecurityDescriptor(smb, uncPath, this._cancelSource.Token);
 			}
 		}
 
@@ -171,11 +168,12 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				: this.Path;
 		}
 
-		private async Task SetAsync(SmbProviderInfo smb, string path, CancellationToken cancellationToken)
+		private void WriteSecurityDescriptor(
+			SmbProviderInfo smb,
+			UncPath uncPath,
+			CancellationToken cancellationToken)
 		{
-			var uncPath = ResolveToUncPath(path, this.ParameterSetName);
-
-			Smb2OpenFile? file = null;
+			Smb2OpenFileObjectBase? file = null;
 			try
 			{
 				var createInfo = new Smb2CreateInfo
@@ -188,13 +186,13 @@ namespace Titanis.Tbo.Smb2.PowerShell
 					FileAttributes = Winterop.FileAttributes.Normal
 				};
 
-				file = (Smb2OpenFile)await smb.SmbClient.CreateFileAsync(uncPath, createInfo, FileAccess.ReadWrite, cancellationToken).ConfigureAwait(false);
-				await file.SetSecurityAsync(this.SecurityDescriptor, DefaultSecurityInfo, cancellationToken).ConfigureAwait(false);
+				file = smb.SmbClient.CreateFileAsync(uncPath, createInfo, FileAccess.ReadWrite, cancellationToken).GetAwaiter().GetResult();
+				file.SetSecurityAsync(this.SecurityDescriptor, DefaultSecurityInfo, cancellationToken).GetAwaiter().GetResult();
 			}
 			finally
 			{
 				if (file != null)
-					await file.CloseAsync(cancellationToken).ConfigureAwait(false);
+					file.CloseAsync(cancellationToken).GetAwaiter().GetResult();
 			}
 		}
 
