@@ -23,3 +23,13 @@ Get-ChildItem
 
 Set `TITANIS_TBO_LOG` to `1` or to a file path. When set to `1`, logs go to
 `%TEMP%\Titanis.TBO.Smb2.log`.
+
+## Build
+
+```powershell
+# Bump the version (major|minor|patch) before commit.
+.\Build\Update-Version.ps1 -Bump patch
+
+# Build with PSPublishModule.
+.\Build\Build-Module.ps1 -Configuration Release
+```
