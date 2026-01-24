@@ -1,5 +1,7 @@
 # Agent Instructions
 
+All Titanis.TBO PowerShell modules and cmdlets must be fully documented with examples before committing.
+
 This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
 
 ## Quick Reference
