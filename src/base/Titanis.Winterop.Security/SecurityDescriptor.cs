@@ -92,7 +92,7 @@ namespace Titanis.Winterop.Security
 			if (offDacl != 0 && 0 != (control & SecurityDescriptorControl.DaclPresent))
 				this.Dacl = new AccessControlList(bytes.Slice(offDacl));
 			if (offSacl != 0 && 0 != (control & SecurityDescriptorControl.SaclPresent))
-				this.Sacl = new AccessControlList(bytes.Slice(offDacl));
+				this.Sacl = new AccessControlList(bytes.Slice(offSacl));
 		}
 		public SecurityDescriptor(
 			SecurityDescriptorControl control,
@@ -221,7 +221,7 @@ namespace Titanis.Winterop.Security
 		private static int Align8(int off)
 		{
 			if ((off & 7) != 0)
-				off = off + 7 & 8 - 1;
+				off = (off + 7) & ~7;
 			return off;
 		}
 	}

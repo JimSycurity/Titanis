@@ -130,7 +130,6 @@ namespace Titanis.Tbo.Smb2.PowerShell
 	{
 		private const string PathParameterSet = "Path";
 		private const string LiteralPathParameterSet = "LiteralPath";
-		private const SecurityInfo DefaultSecurityInfo = SecurityInfo.Owner | SecurityInfo.Group | SecurityInfo.Dacl;
 
 		[Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true, ParameterSetName = PathParameterSet)]
 		public string[] Path { get; set; } = Array.Empty<string>();
@@ -151,7 +150,8 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			foreach (var path in GetTargetPaths())
 			{
 				var uncPath = ResolveToUncPath(path, this.ParameterSetName);
-				WriteSecurityDescriptor(smb, uncPath, this._cancelSource.Token);
+				var securityInfo = ResolveSecurityInfo(this.SecurityDescriptor);
+				WriteSecurityDescriptor(smb, uncPath, securityInfo, this._cancelSource.Token);
 			}
 		}
 
@@ -168,9 +168,30 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				: this.Path;
 		}
 
+		private static SecurityInfo ResolveSecurityInfo(SecurityDescriptor securityDescriptor)
+		{
+			if (securityDescriptor is null) throw new ArgumentNullException(nameof(securityDescriptor));
+
+			SecurityInfo securityInfo = SecurityInfo.None;
+			if (securityDescriptor.Owner != null)
+				securityInfo |= SecurityInfo.Owner;
+			if (securityDescriptor.Group != null)
+				securityInfo |= SecurityInfo.Group;
+			if (securityDescriptor.Dacl != null)
+				securityInfo |= SecurityInfo.Dacl;
+			if (securityDescriptor.Sacl != null)
+				securityInfo |= SecurityInfo.Sacl;
+
+			if (securityInfo == SecurityInfo.None)
+				throw new ArgumentException("Security descriptor does not contain any sections to apply.", nameof(securityDescriptor));
+
+			return securityInfo;
+		}
+
 		private void WriteSecurityDescriptor(
 			SmbProviderInfo smb,
 			UncPath uncPath,
+			SecurityInfo securityInfo,
 			CancellationToken cancellationToken)
 		{
 			Smb2OpenFileObjectBase? file = null;
@@ -187,7 +208,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				};
 
 				file = smb.SmbClient.CreateFileAsync(uncPath, createInfo, FileAccess.ReadWrite, cancellationToken).GetAwaiter().GetResult();
-				file.SetSecurityAsync(this.SecurityDescriptor, DefaultSecurityInfo, cancellationToken).GetAwaiter().GetResult();
+				file.SetSecurityAsync(this.SecurityDescriptor, securityInfo, cancellationToken).GetAwaiter().GetResult();
 			}
 			finally
 			{
