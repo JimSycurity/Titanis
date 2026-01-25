@@ -87,6 +87,15 @@ Get-TBOSmbSnapshots -Path \\corp1-web01\C$\Windows\System32\config\SAM
 Set-Location tbo:\@GMT-2026.01.25-20.47.30\Windows\System32\config
 ```
 
+### Get-TBOSmbOpenFiles
+
+Lists files open on the server via the srvsvc RPC interface. BasePath uses srvsvc conventions (drive roots like `C:\` or `\\` for pipes) and accepts UNC or `tbo:\` paths. Requires administrative rights (or equivalent) on the target server.
+
+```powershell
+Get-TBOSmbOpenFiles -ServerName corp1-web01.corp1.lab.home-labs.lol
+Get-TBOSmbOpenFiles -ServerName corp1-web01.corp1.lab.home-labs.lol -BasePath tbo:\Windows -OpenBy psx_l_backupop
+```
+
 ### Snapshot Navigation (TimeWarp)
 
 Use the @GMT token from Get-TBOSmbSnapshots to navigate a snapshot. Snapshot paths are read-only.
