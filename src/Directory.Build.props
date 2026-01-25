@@ -1,7 +1,8 @@
 <!-- /src -->
 <Project>
 	<!-- Include global settings -->
-	<Import Project="$(SolutionDir)Directory.Build.props"/>
+	<Import Project="$(MSBuildThisFileDirectory)..\Directory.Build.props"
+	        Condition="Exists('$(MSBuildThisFileDirectory)..\Directory.Build.props')" />
 	
 	<PropertyGroup>
 		<!-- Build settings -->
@@ -9,7 +10,8 @@
 		<LangVersion>12.0</LangVersion>
 		<Nullable>enable</Nullable>
 
-		<ArtifactsPath>$(ArtifactsPath)/lib</ArtifactsPath>
+		<ArtifactsPath Condition="'$(ArtifactsPath)'==''">$(MSBuildThisFileDirectory)..\artifacts\</ArtifactsPath>
+		<ArtifactsPath>$([System.IO.Path]::Combine('$(ArtifactsPath)', 'lib'))</ArtifactsPath>
 
 		<GenerateDocumentationFile>True</GenerateDocumentationFile>
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Management.Automation;
+using System.Management.Automation.Provider;
 using Titanis.Net;
 using Titanis.Smb2;
 using Smb2AccessRights = Titanis.Smb2.Smb2FileAccessRights;
@@ -44,7 +45,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			});
 		}
 
-		public object GetPropertyDynamicParameters(string path)
+		public object GetPropertyDynamicParameters(string path, Collection<string> providerSpecificPickList)
 		{
 			return null;
 		}
@@ -92,7 +93,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			});
 		}
 
-		public object SetPropertyDynamicParameters(string path)
+		public object SetPropertyDynamicParameters(string path, PSObject propertyValue)
 		{
 			return null;
 		}
@@ -102,7 +103,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			throw new NotSupportedException("Clearing SMB properties is not supported.");
 		}
 
-		public object ClearPropertyDynamicParameters(string path)
+		public object ClearPropertyDynamicParameters(string path, Collection<string> propertyToClear)
 		{
 			return null;
 		}
@@ -169,40 +170,56 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				if (prop.Value == null)
 					continue;
 
-				switch (prop.Name)
+				var propName = prop.Name ?? string.Empty;
+				if (propName.Equals("CreationTime", StringComparison.OrdinalIgnoreCase))
 				{
-					case string name when name.Equals("CreationTime", StringComparison.OrdinalIgnoreCase):
-						update.CreationTime = NormalizeTimestamp(prop.Value, false);
-						break;
-					case string name when name.Equals("CreationTimeUtc", StringComparison.OrdinalIgnoreCase):
-						update.CreationTime = NormalizeTimestamp(prop.Value, true);
-						break;
-					case string name when name.Equals("LastAccessTime", StringComparison.OrdinalIgnoreCase):
-						update.LastAccessTime = NormalizeTimestamp(prop.Value, false);
-						break;
-					case string name when name.Equals("LastAccessTimeUtc", StringComparison.OrdinalIgnoreCase):
-						update.LastAccessTime = NormalizeTimestamp(prop.Value, true);
-						break;
-					case string name when name.Equals("LastWriteTime", StringComparison.OrdinalIgnoreCase):
-						update.LastWriteTime = NormalizeTimestamp(prop.Value, false);
-						break;
-					case string name when name.Equals("LastWriteTimeUtc", StringComparison.OrdinalIgnoreCase):
-						update.LastWriteTime = NormalizeTimestamp(prop.Value, true);
-						break;
-					case string name when name.Equals("ChangeTime", StringComparison.OrdinalIgnoreCase):
-						update.ChangeTime = NormalizeTimestamp(prop.Value, false);
-						break;
-					case string name when name.Equals("ChangeTimeUtc", StringComparison.OrdinalIgnoreCase):
-						update.ChangeTime = NormalizeTimestamp(prop.Value, true);
-						break;
-					case string name when name.Equals("Attributes", StringComparison.OrdinalIgnoreCase):
-					case string name when name.Equals("FileAttributes", StringComparison.OrdinalIgnoreCase):
-						update.Attributes = ConvertAttributes(prop.Value);
-						update.AttributesProvided = true;
-						break;
-					default:
-						throw new ArgumentException($"Unsupported property name: {prop.Name}");
+					update.CreationTime = NormalizeTimestamp(prop.Value, false);
+					continue;
 				}
+				if (propName.Equals("CreationTimeUtc", StringComparison.OrdinalIgnoreCase))
+				{
+					update.CreationTime = NormalizeTimestamp(prop.Value, true);
+					continue;
+				}
+				if (propName.Equals("LastAccessTime", StringComparison.OrdinalIgnoreCase))
+				{
+					update.LastAccessTime = NormalizeTimestamp(prop.Value, false);
+					continue;
+				}
+				if (propName.Equals("LastAccessTimeUtc", StringComparison.OrdinalIgnoreCase))
+				{
+					update.LastAccessTime = NormalizeTimestamp(prop.Value, true);
+					continue;
+				}
+				if (propName.Equals("LastWriteTime", StringComparison.OrdinalIgnoreCase))
+				{
+					update.LastWriteTime = NormalizeTimestamp(prop.Value, false);
+					continue;
+				}
+				if (propName.Equals("LastWriteTimeUtc", StringComparison.OrdinalIgnoreCase))
+				{
+					update.LastWriteTime = NormalizeTimestamp(prop.Value, true);
+					continue;
+				}
+				if (propName.Equals("ChangeTime", StringComparison.OrdinalIgnoreCase))
+				{
+					update.ChangeTime = NormalizeTimestamp(prop.Value, false);
+					continue;
+				}
+				if (propName.Equals("ChangeTimeUtc", StringComparison.OrdinalIgnoreCase))
+				{
+					update.ChangeTime = NormalizeTimestamp(prop.Value, true);
+					continue;
+				}
+				if (propName.Equals("Attributes", StringComparison.OrdinalIgnoreCase)
+					|| propName.Equals("FileAttributes", StringComparison.OrdinalIgnoreCase))
+				{
+					update.Attributes = ConvertAttributes(prop.Value);
+					update.AttributesProvided = true;
+					continue;
+				}
+
+				throw new ArgumentException($"Unsupported property name: {prop.Name}");
 			}
 
 			return update;

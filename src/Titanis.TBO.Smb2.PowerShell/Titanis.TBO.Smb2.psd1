@@ -1,5 +1,5 @@
 @{
-	ModuleVersion = '0.5.1'
+	ModuleVersion = '0.5.2'
 	Author = 'Jim Sykora'
 	Description = 'A PowerShell module utilizing the TrustedSec Titanis library to perform operations with backup privileges.'
 	RootModule = 'Titanis.TBO.Smb2.PowerShell.dll'
@@ -7,5 +7,6 @@
 	FunctionsToExport = @()
 	FormatsToProcess = 'Format.ps1xml'
 }
+
 
 
