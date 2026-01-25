@@ -361,6 +361,63 @@ namespace Titanis.Smb2
 		}
 		#endregion
 
+		#region Disconnect
+		public async Task DisconnectServerAsync(string serverName, int? port = null)
+		{
+			if (string.IsNullOrWhiteSpace(serverName))
+				throw new ArgumentException("Server name must be provided.", nameof(serverName));
+
+			bool Matches(ConnectionKey key)
+			{
+				if (!key.ServerName.Equals(serverName, StringComparison.OrdinalIgnoreCase))
+					return false;
+				return !port.HasValue || key.Port == port.Value;
+			}
+
+			var shareKeys = this._shares.Keys.Where(key => Matches(key.SessionKey.ConnectionKey)).ToList();
+			foreach (var key in shareKeys)
+			{
+				if (this._shares.Remove(key, out var share))
+					await share.DisposeAsync().ConfigureAwait(false);
+			}
+
+			var sessionKeys = this._sessions.Keys.Where(key => Matches(key.ConnectionKey)).ToList();
+			foreach (var key in sessionKeys)
+			{
+				if (this._sessions.Remove(key, out var session))
+					await session.DisposeAsync().ConfigureAwait(false);
+			}
+
+			var connectionKeys = this._connections.Keys.Where(Matches).ToList();
+			foreach (var key in connectionKeys)
+			{
+				if (!this._connections.Remove(key, out var connGroup))
+					continue;
+
+				foreach (var conn in connGroup.connections)
+					await conn.DisposeAsync().ConfigureAwait(false);
+			}
+		}
+
+		public async Task DisconnectAllAsync()
+		{
+			foreach (var share in this._shares.Values)
+				await share.DisposeAsync().ConfigureAwait(false);
+			this._shares.Clear();
+
+			foreach (var session in this._sessions.Values)
+				await session.DisposeAsync().ConfigureAwait(false);
+			this._sessions.Clear();
+
+			foreach (var connGroup in this._connections.Values)
+			{
+				foreach (var conn in connGroup.connections)
+					await conn.DisposeAsync().ConfigureAwait(false);
+			}
+			this._connections.Clear();
+		}
+		#endregion
+
 		public bool FollowDfs { get; set; } = true;
 		public const string IpcName = "IPC$";
 

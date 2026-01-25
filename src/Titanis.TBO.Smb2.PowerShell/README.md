@@ -44,6 +44,15 @@ Initializes the TBO.Smb2 provider for a server name. Connections are opened on-d
 Connect-TBOSmbServer -ServerName corp1-web01.corp1.lab.home-labs.lol -UserName psx_l_backupop -UserDomain corp1.lab.home-labs.lol -Password 'YourSecurePassword'
 ```
 
+### Disconnect-TBOSmbServer
+
+Closes cached SMB connections, sessions, and tree connects for a server or all servers.
+
+```powershell
+Disconnect-TBOSmbServer -ServerName corp1-web01.corp1.lab.home-labs.lol
+Disconnect-TBOSmbServer -All
+```
+
 ### Set-TBOSmbConnectOptions
 
 Sets connection defaults used by TBO cmdlets and the TBO.Smb2 provider. Supports the same dynamic parameters as `New-PSDrive` (credentials, SMB dialects, ciphers, signing, name resolution, and more).

@@ -35,7 +35,7 @@ $newVersion = "$major.$minor.$patch"
 $metadata = [regex]::Replace(
 	$metadata,
 	'(ModuleVersion:\s*)[0-9]+(?:\.[0-9]+){1,2}',
-	"`$1$newVersion"
+	'${1}' + $newVersion
 )
 
 $manifest = Get-Content -Path $manifestPath -Raw

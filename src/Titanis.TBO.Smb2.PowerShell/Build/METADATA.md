@@ -3,7 +3,7 @@
 Fill in these fields before publishing to the PowerShell Gallery.
 
 - ModuleName: Titanis Backup Operator PowerShell Module
-- ModuleVersion: 0.4.0
+- ModuleVersion: 0.5.0
 - Author: Jim Sykora
 - CompanyName: SpecterOps
 - Copyright: (c) 2026. All rights reserved.
@@ -17,3 +17,4 @@ Fill in these fields before publishing to the PowerShell Gallery.
 - Prerelease:
 - CompatiblePSEditions: Desktop
 - PowerShellVersion: 7
+
