@@ -39,11 +39,12 @@ Set-TBOSmbConnectOptions -ServerName corp1-web01.corp1.lab.home-labs.lol -HostNa
 
 ### Copy-TBOSmbItem
 
-Copies files between local paths and SMB paths using backup intent. Supports UNC or `tbo:\` paths.
+Copies files between local paths and SMB paths using backup intent. Supports UNC or `tbo:\` paths. Use `-Force` (alias `-Overwrite`) to overwrite existing destinations.
 
 ```powershell
 Copy-TBOSmbItem -Source tbo:\Windows\System32\config\SAM -Destination C:\Temp\SAM.bak
 Copy-TBOSmbItem -Source C:\Temp\local.txt -Destination tbo:\Temp\local.txt -CreateDirectories
+Copy-TBOSmbItem -Source C:\Temp\local.txt -Destination tbo:\Temp\local.txt -Force
 ```
 
 ### Get-TBOSmbSecurityDescriptor

@@ -23,6 +23,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		public string Destination { get; set; } = string.Empty;
 
 		[Parameter]
+		[Alias("Overwrite")]
 		public SwitchParameter Force { get; set; }
 
 		[Parameter]

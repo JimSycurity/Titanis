@@ -138,7 +138,7 @@
       <command:parameter>
         <maml:name>Force</maml:name>
         <maml:description>
-          <maml:para>Overwrite the destination if it already exists.</maml:para>
+          <maml:para>Overwrite the destination if it already exists. Alias: Overwrite.</maml:para>
         </maml:description>
         <command:parameterValue>Switch</command:parameterValue>
       </command:parameter>
