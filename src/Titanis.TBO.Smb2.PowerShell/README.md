@@ -32,6 +32,12 @@ Set-Location tbo:\
 Get-ChildItem
 ```
 
+Provider-qualified UNC paths can be used without creating a drive:
+
+```powershell
+Get-ChildItem TBO.Smb2::\\corp1-web01.corp1.lab.home-labs.lol\C$\Windows
+```
+
 Use `Get-Help about_TBO_Smb2_Provider` for supported item types, dynamic parameters, and limitations (for example, content writing is not implemented).
 
 ## Cmdlets
@@ -69,6 +75,23 @@ Copies files between local paths and SMB paths using backup intent. Supports UNC
 Copy-TBOSmbItem -Source tbo:\Windows\System32\config\SAM -Destination C:\Temp\SAM.bak
 Copy-TBOSmbItem -Source C:\Temp\local.txt -Destination tbo:\Temp\local.txt -CreateDirectories
 Copy-TBOSmbItem -Source C:\Temp\local.txt -Destination tbo:\Temp\local.txt -Force
+```
+
+### Provider Item Operations
+
+Use native PowerShell cmdlets for links, mount points, and touch-style updates.
+
+```powershell
+# Create a junction (mount point) or symlink.
+New-Item -Path tbo:\Mounts\AppData -ItemType Junction -MountPointTarget 'C:\ProgramData'
+New-Item -Path tbo:\Links\Logs -ItemType Symlink -TargetPath 'C:\Windows\System32\LogFiles'
+
+# Remove the link or mount point (inverse of create).
+Remove-Item -Path tbo:\Mounts\AppData
+
+# Update timestamps/attributes (touch behavior).
+Set-ItemProperty -Path tbo:\Temp\example.txt -Name LastWriteTime -Value (Get-Date)
+Set-ItemProperty -Path tbo:\Temp\example.txt -Name Attributes -Value 'Hidden, ReadOnly'
 ```
 
 ### Get-TBOSmbSecurityDescriptor
