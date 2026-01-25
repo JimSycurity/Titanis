@@ -25,6 +25,9 @@
     <Content Include="README.md">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="Titanis.TBO.Smb2.PowerShell.dll-Help.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="Titanis.TBO.Smb2.psd1">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -39,6 +42,7 @@
     <ProjectReference Include="..\base\Titanis.Winterop.FileInfo\Titanis.Winterop.FileInfo.csproj" />
     <ProjectReference Include="..\net\Titanis.DceRpc\Titanis.DceRpc.csproj" />
     <ProjectReference Include="..\net\msrpc\Titanis.Msrpc.Mslsar\Titanis.Msrpc.Mslsar.csproj" />
+    <ProjectReference Include="..\net\msrpc\Titanis.Msrpc.Msrrp\Titanis.Msrpc.Msrrp.csproj" />
     <ProjectReference Include="..\net\Titanis.Smb2\Titanis.Smb2.csproj" />
     <ProjectReference Include="..\security\Titanis.Security.Kerberos\Titanis.Security.Kerberos.csproj" />
     <ProjectReference Include="..\security\Titanis.Security.Ntlm\Titanis.Security.Ntlm.csproj" />

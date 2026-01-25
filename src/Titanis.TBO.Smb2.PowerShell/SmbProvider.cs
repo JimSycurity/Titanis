@@ -357,21 +357,32 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				? new Smb2Logger(this._log, this)
 				: this;
 
+			this.SmbClient = CreateSmbClient(socketService, traceCallback, this._log, Smb2FileCreateOptions.OpenForBackupIntent);
+			this.RpcSmbClient = CreateSmbClient(socketService, traceCallback, this._log, Smb2FileCreateOptions.None);
+		}
+
+		public SmbProvider Provider { get; }
+		public Smb2Client SmbClient { get; private set; }
+		public Smb2Client RpcSmbClient { get; private set; }
+		private readonly ILog? _log;
+		private readonly TextWriter? _logWriter;
+
+		private Smb2Client CreateSmbClient(
+			ISocketService socketService,
+			ISmb2TraceCallback traceCallback,
+			ILog? log,
+			Smb2FileCreateOptions requiredCreateOptions)
+		{
 			var client = new Smb2Client(
 				this,
 				socketService,
 				this,
 				traceCallback,
-				this._log
+				log
 				);
-			client.RequiredCreateOptions = Smb2FileCreateOptions.OpenForBackupIntent;
-			this.SmbClient = client;
+			client.RequiredCreateOptions = requiredCreateOptions;
+			return client;
 		}
-
-		public SmbProvider Provider { get; }
-		public Smb2Client SmbClient { get; private set; }
-		private readonly ILog? _log;
-		private readonly TextWriter? _logWriter;
 
 		#region Connection parameters
 		private SmbConnectionParameters _defaultConnectParameters = SmbConnectionParameters.GetDefault();
@@ -471,10 +482,12 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			SecurityCapabilities requiredCaps,
 			AuthOptions options)
 		{
+			ServicePrincipalName? serviceSpn = resourceKey as ServicePrincipalName;
+
 			string? serverName = resourceType switch
 			{
 				ResourceTypes.Server when resourceKey is string server => server,
-				ResourceTypes.Service when resourceKey is ServicePrincipalName spn => spn.ServiceInstance,
+				ResourceTypes.Service when serviceSpn != null => serviceSpn.ServiceInstance,
 				ResourceTypes.SmbShare when resourceKey is UncPath sharePath => sharePath.ServerName,
 				_ => null
 			};
@@ -487,8 +500,17 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			// Create SPNEGO context required by SMB2
 			var authContext = new SpnegoClientContext();
 
-			var targetHost = string.IsNullOrEmpty(parms.HostName) ? serverName : parms.HostName;
-			var targetSpn = new ServicePrincipalName(ServiceClassNames.Cifs, targetHost);
+			ServicePrincipalName targetSpn;
+			if (resourceType == ResourceTypes.Service && serviceSpn != null)
+			{
+				var targetHost = string.IsNullOrEmpty(parms.HostName) ? serviceSpn.ServiceInstance : parms.HostName;
+				targetSpn = new ServicePrincipalName(serviceSpn.ServiceClass, targetHost);
+			}
+			else
+			{
+				var targetHost = string.IsNullOrEmpty(parms.HostName) ? serverName : parms.HostName;
+				targetSpn = new ServicePrincipalName(ServiceClassNames.Cifs, targetHost);
+			}
 
 			if (!string.IsNullOrEmpty(parms.Kdc))
 			{

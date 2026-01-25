@@ -1,0 +1,746 @@
+<?xml version="1.0" encoding="utf-8"?>
+<helpItems schema="maml" xmlns:maml="http://schemas.microsoft.com/maml/2004/10" xmlns:command="http://schemas.microsoft.com/maml/dev/command/2004/10" xmlns:dev="http://schemas.microsoft.com/maml/dev/2004/10">
+  <command:command>
+    <command:details>
+      <command:name>Connect-TBOSmbServer</command:name>
+      <command:verb>Connect</command:verb>
+      <command:noun>TBOSmbServer</command:noun>
+      <maml:description>
+        <maml:para>Connects to an SMB server and caches the session for later cmdlets.</maml:para>
+      </maml:description>
+    </command:details>
+    <command:syntax>
+      <command:syntaxItem>
+        <command:name>Connect-TBOSmbServer</command:name>
+        <command:parameter required="true" position="0">
+          <maml:name>ServerName</maml:name>
+          <command:parameterValue>String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false">
+          <maml:name>RemoteAddress</maml:name>
+          <command:parameterValue>String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false">
+          <maml:name>RemotePort</maml:name>
+          <command:parameterValue>Int32</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" position="0">
+        <maml:name>ServerName</maml:name>
+        <maml:description>
+          <maml:para>DNS name or IP address of the SMB server.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+      <command:parameter required="false">
+        <maml:name>RemoteAddress</maml:name>
+        <maml:description>
+          <maml:para>Optional address override for the SMB server.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+      <command:parameter required="false">
+        <maml:name>RemotePort</maml:name>
+        <maml:description>
+          <maml:para>Optional SMB port override.</maml:para>
+        </maml:description>
+        <command:parameterValue>Int32</command:parameterValue>
+      </command:parameter>
+    </command:parameters>
+    <command:examples>
+      <command:example>
+        <command:title>-------------------------- EXAMPLE 1 --------------------------</command:title>
+        <maml:code>Connect-TBOSmbServer -ServerName corp1-web01.corp1.lab.home-labs.lol</maml:code>
+        <maml:remarks>
+          <maml:para>Connects to the SMB server.</maml:para>
+        </maml:remarks>
+      </command:example>
+    </command:examples>
+  </command:command>
+
+  <command:command>
+    <command:details>
+      <command:name>Set-TBOSmbConnectOptions</command:name>
+      <command:verb>Set</command:verb>
+      <command:noun>TBOSmbConnectOptions</command:noun>
+      <maml:description>
+        <maml:para>Sets connection defaults used by the TBO.Smb2 provider and cmdlets.</maml:para>
+      </maml:description>
+    </command:details>
+    <command:syntax>
+      <command:syntaxItem>
+        <command:name>Set-TBOSmbConnectOptions</command:name>
+        <command:parameter required="false" position="0">
+          <maml:name>ServerName</maml:name>
+          <command:parameterValue>String</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="false" position="0">
+        <maml:name>ServerName</maml:name>
+        <maml:description>
+          <maml:para>Server name to scope the connection defaults. Omit to set global defaults.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+    </command:parameters>
+    <command:examples>
+      <command:example>
+        <command:title>-------------------------- EXAMPLE 1 --------------------------</command:title>
+        <maml:code>Set-TBOSmbConnectOptions -ServerName corp1-web01.corp1.lab.home-labs.lol -UserName psx_l_backupop -UserDomain corp1.lab.home-labs.lol -Password 'YourSecurePassword'</maml:code>
+        <maml:remarks>
+          <maml:para>Sets connection defaults for a specific server.</maml:para>
+        </maml:remarks>
+      </command:example>
+    </command:examples>
+  </command:command>
+
+  <command:command>
+    <command:details>
+      <command:name>Copy-TBOSmbItem</command:name>
+      <command:verb>Copy</command:verb>
+      <command:noun>TBOSmbItem</command:noun>
+      <maml:description>
+        <maml:para>Copies files between local paths and SMB paths using backup intent.</maml:para>
+      </maml:description>
+    </command:details>
+    <command:syntax>
+      <command:syntaxItem>
+        <command:name>Copy-TBOSmbItem</command:name>
+        <command:parameter required="true" position="0">
+          <maml:name>Source</maml:name>
+          <command:parameterValue>String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="true" position="1">
+          <maml:name>Destination</maml:name>
+          <command:parameterValue>String</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" position="0">
+        <maml:name>Source</maml:name>
+        <maml:description>
+          <maml:para>Source path. Accepts UNC paths, TBO.Smb2 PSDrive paths, or local paths.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+      <command:parameter required="true" position="1">
+        <maml:name>Destination</maml:name>
+        <maml:description>
+          <maml:para>Destination path. Accepts UNC paths, TBO.Smb2 PSDrive paths, or local paths.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>Force</maml:name>
+        <maml:description>
+          <maml:para>Overwrite the destination if it already exists.</maml:para>
+        </maml:description>
+        <command:parameterValue>Switch</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>CreateDirectories</maml:name>
+        <maml:description>
+          <maml:para>Create destination directories when needed.</maml:para>
+        </maml:description>
+        <command:parameterValue>Switch</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>PreserveTimestamps</maml:name>
+        <maml:description>
+          <maml:para>Preserve timestamps when copying.</maml:para>
+        </maml:description>
+        <command:parameterValue>Switch</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>PreserveSecurityDescriptor</maml:name>
+        <maml:description>
+          <maml:para>Preserve security descriptors for SMB-to-SMB copies.</maml:para>
+        </maml:description>
+        <command:parameterValue>Switch</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>ChunkSize</maml:name>
+        <maml:description>
+          <maml:para>Copy chunk size in bytes.</maml:para>
+        </maml:description>
+        <command:parameterValue>Int32</command:parameterValue>
+      </command:parameter>
+    </command:parameters>
+    <command:examples>
+      <command:example>
+        <command:title>-------------------------- EXAMPLE 1 --------------------------</command:title>
+        <maml:code>Copy-TBOSmbItem -Source tbo:\Windows\System32\config\SAM -Destination C:\Temp\SAM.bak</maml:code>
+        <maml:remarks>
+          <maml:para>Copies a remote file to the local machine.</maml:para>
+        </maml:remarks>
+      </command:example>
+    </command:examples>
+  </command:command>
+
+  <command:command>
+    <command:details>
+      <command:name>Get-TBOSmbSecurityDescriptor</command:name>
+      <command:verb>Get</command:verb>
+      <command:noun>TBOSmbSecurityDescriptor</command:noun>
+      <maml:description>
+        <maml:para>Reads a security descriptor from a remote file or directory.</maml:para>
+      </maml:description>
+    </command:details>
+    <command:syntax>
+      <command:syntaxItem>
+        <command:name>Get-TBOSmbSecurityDescriptor</command:name>
+        <command:parameter required="true" position="0">
+          <maml:name>Path</maml:name>
+          <command:parameterValue>String[]</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false">
+          <maml:name>AsSddl</maml:name>
+          <command:parameterValue>Switch</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false">
+          <maml:name>AsBytes</maml:name>
+          <command:parameterValue>Switch</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" position="0">
+        <maml:name>Path</maml:name>
+        <maml:description>
+          <maml:para>Target path. Accepts UNC paths or TBO.Smb2 PSDrive paths.</maml:para>
+        </maml:description>
+        <command:parameterValue>String[]</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>LiteralPath</maml:name>
+        <maml:description>
+          <maml:para>Literal target path. Use when the path contains wildcard characters.</maml:para>
+        </maml:description>
+        <command:parameterValue>String[]</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>AsSddl</maml:name>
+        <maml:description>
+          <maml:para>Return the security descriptor as an SDDL string.</maml:para>
+        </maml:description>
+        <command:parameterValue>Switch</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>AsBytes</maml:name>
+        <maml:description>
+          <maml:para>Return the security descriptor as a byte array.</maml:para>
+        </maml:description>
+        <command:parameterValue>Switch</command:parameterValue>
+      </command:parameter>
+    </command:parameters>
+    <command:examples>
+      <command:example>
+        <command:title>-------------------------- EXAMPLE 1 --------------------------</command:title>
+        <maml:code>Get-TBOSmbSecurityDescriptor -Path tbo:\Windows</maml:code>
+        <maml:remarks>
+          <maml:para>Reads the security descriptor from a directory.</maml:para>
+        </maml:remarks>
+      </command:example>
+    </command:examples>
+  </command:command>
+
+  <command:command>
+    <command:details>
+      <command:name>Set-TBOSmbSecurityDescriptor</command:name>
+      <command:verb>Set</command:verb>
+      <command:noun>TBOSmbSecurityDescriptor</command:noun>
+      <maml:description>
+        <maml:para>Writes a security descriptor to a remote file or directory.</maml:para>
+      </maml:description>
+    </command:details>
+    <command:syntax>
+      <command:syntaxItem>
+        <command:name>Set-TBOSmbSecurityDescriptor</command:name>
+        <command:parameter required="true" position="0">
+          <maml:name>Path</maml:name>
+          <command:parameterValue>String[]</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="true" position="1">
+          <maml:name>SecurityDescriptor</maml:name>
+          <command:parameterValue>SecurityDescriptor</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" position="0">
+        <maml:name>Path</maml:name>
+        <maml:description>
+          <maml:para>Target path. Accepts UNC paths or TBO.Smb2 PSDrive paths.</maml:para>
+        </maml:description>
+        <command:parameterValue>String[]</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>LiteralPath</maml:name>
+        <maml:description>
+          <maml:para>Literal target path. Use when the path contains wildcard characters.</maml:para>
+        </maml:description>
+        <command:parameterValue>String[]</command:parameterValue>
+      </command:parameter>
+      <command:parameter required="true" position="1">
+        <maml:name>SecurityDescriptor</maml:name>
+        <maml:description>
+          <maml:para>Security descriptor to write.</maml:para>
+        </maml:description>
+        <command:parameterValue>SecurityDescriptor</command:parameterValue>
+      </command:parameter>
+    </command:parameters>
+    <command:examples>
+      <command:example>
+        <command:title>-------------------------- EXAMPLE 1 --------------------------</command:title>
+        <maml:code>$sd = Get-TBOSmbSecurityDescriptor -Path tbo:\Windows
+Set-TBOSmbSecurityDescriptor -Path tbo:\Windows -SecurityDescriptor $sd</maml:code>
+        <maml:remarks>
+          <maml:para>Reads and then writes a security descriptor.</maml:para>
+        </maml:remarks>
+      </command:example>
+    </command:examples>
+  </command:command>
+
+  <command:command>
+    <command:details>
+      <command:name>Get-TBORegKey</command:name>
+      <command:verb>Get</command:verb>
+      <command:noun>TBORegKey</command:noun>
+      <maml:description>
+        <maml:para>Gets metadata for a remote registry key.</maml:para>
+      </maml:description>
+    </command:details>
+    <command:syntax>
+      <command:syntaxItem>
+        <command:name>Get-TBORegKey</command:name>
+        <command:parameter required="true" position="0">
+          <maml:name>ServerName</maml:name>
+          <command:parameterValue>String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="true" position="1">
+          <maml:name>Path</maml:name>
+          <command:parameterValue>String</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" position="0">
+        <maml:name>ServerName</maml:name>
+        <maml:description>
+          <maml:para>Remote host name.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+      <command:parameter required="true" position="1">
+        <maml:name>Path</maml:name>
+        <maml:description>
+          <maml:para>Registry key path starting with a root key (for example, HKLM\SOFTWARE).</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+    </command:parameters>
+    <command:examples>
+      <command:example>
+        <command:title>-------------------------- EXAMPLE 1 --------------------------</command:title>
+        <maml:code>Get-TBORegKey -ServerName corp1-web01.corp1.lab.home-labs.lol -Path HKLM\SOFTWARE</maml:code>
+        <maml:remarks>
+          <maml:para>Gets key metadata from the remote registry.</maml:para>
+        </maml:remarks>
+      </command:example>
+    </command:examples>
+  </command:command>
+
+  <command:command>
+    <command:details>
+      <command:name>Get-TBORegChildItem</command:name>
+      <command:verb>Get</command:verb>
+      <command:noun>TBORegChildItem</command:noun>
+      <maml:description>
+        <maml:para>Lists subkeys and values beneath a remote registry key.</maml:para>
+      </maml:description>
+    </command:details>
+    <command:syntax>
+      <command:syntaxItem>
+        <command:name>Get-TBORegChildItem</command:name>
+        <command:parameter required="true" position="0">
+          <maml:name>ServerName</maml:name>
+          <command:parameterValue>String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="true" position="1">
+          <maml:name>Path</maml:name>
+          <command:parameterValue>String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false">
+          <maml:name>IncludeSubkeys</maml:name>
+          <command:parameterValue>Switch</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false">
+          <maml:name>IncludeValues</maml:name>
+          <command:parameterValue>Switch</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false">
+          <maml:name>IncludeData</maml:name>
+          <command:parameterValue>Switch</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" position="0">
+        <maml:name>ServerName</maml:name>
+        <maml:description>
+          <maml:para>Remote host name.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+      <command:parameter required="true" position="1">
+        <maml:name>Path</maml:name>
+        <maml:description>
+          <maml:para>Registry key path to enumerate.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>IncludeSubkeys</maml:name>
+        <maml:description>
+          <maml:para>Include subkeys. If neither IncludeSubkeys nor IncludeValues is specified, both are included.</maml:para>
+        </maml:description>
+        <command:parameterValue>Switch</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>IncludeValues</maml:name>
+        <maml:description>
+          <maml:para>Include values. If neither IncludeSubkeys nor IncludeValues is specified, both are included.</maml:para>
+        </maml:description>
+        <command:parameterValue>Switch</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>IncludeData</maml:name>
+        <maml:description>
+          <maml:para>Include value data when enumerating values.</maml:para>
+        </maml:description>
+        <command:parameterValue>Switch</command:parameterValue>
+      </command:parameter>
+    </command:parameters>
+    <command:examples>
+      <command:example>
+        <command:title>-------------------------- EXAMPLE 1 --------------------------</command:title>
+        <maml:code>Get-TBORegChildItem -ServerName corp1-web01.corp1.lab.home-labs.lol -Path HKLM\SOFTWARE</maml:code>
+        <maml:remarks>
+          <maml:para>Lists subkeys and values under the key.</maml:para>
+        </maml:remarks>
+      </command:example>
+      <command:example>
+        <command:title>-------------------------- EXAMPLE 2 --------------------------</command:title>
+        <maml:code>Get-TBORegChildItem -ServerName corp1-web01.corp1.lab.home-labs.lol -Path HKLM\SOFTWARE -IncludeValues -IncludeData</maml:code>
+        <maml:remarks>
+          <maml:para>Lists values and includes data payloads.</maml:para>
+        </maml:remarks>
+      </command:example>
+    </command:examples>
+  </command:command>
+
+  <command:command>
+    <command:details>
+      <command:name>New-TBORegKey</command:name>
+      <command:verb>New</command:verb>
+      <command:noun>TBORegKey</command:noun>
+      <maml:description>
+        <maml:para>Creates a remote registry key.</maml:para>
+      </maml:description>
+    </command:details>
+    <command:syntax>
+      <command:syntaxItem>
+        <command:name>New-TBORegKey</command:name>
+        <command:parameter required="true" position="0">
+          <maml:name>ServerName</maml:name>
+          <command:parameterValue>String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="true" position="1">
+          <maml:name>Path</maml:name>
+          <command:parameterValue>String</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" position="0">
+        <maml:name>ServerName</maml:name>
+        <maml:description>
+          <maml:para>Remote host name.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+      <command:parameter required="true" position="1">
+        <maml:name>Path</maml:name>
+        <maml:description>
+          <maml:para>Registry key path to create.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+    </command:parameters>
+    <command:examples>
+      <command:example>
+        <command:title>-------------------------- EXAMPLE 1 --------------------------</command:title>
+        <maml:code>New-TBORegKey -ServerName corp1-web01.corp1.lab.home-labs.lol -Path HKLM\SOFTWARE\TBO</maml:code>
+        <maml:remarks>
+          <maml:para>Creates a key on the remote host.</maml:para>
+        </maml:remarks>
+      </command:example>
+    </command:examples>
+  </command:command>
+
+  <command:command>
+    <command:details>
+      <command:name>Remove-TBORegKey</command:name>
+      <command:verb>Remove</command:verb>
+      <command:noun>TBORegKey</command:noun>
+      <maml:description>
+        <maml:para>Removes a remote registry key.</maml:para>
+      </maml:description>
+    </command:details>
+    <command:syntax>
+      <command:syntaxItem>
+        <command:name>Remove-TBORegKey</command:name>
+        <command:parameter required="true" position="0">
+          <maml:name>ServerName</maml:name>
+          <command:parameterValue>String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="true" position="1">
+          <maml:name>Path</maml:name>
+          <command:parameterValue>String</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" position="0">
+        <maml:name>ServerName</maml:name>
+        <maml:description>
+          <maml:para>Remote host name.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+      <command:parameter required="true" position="1">
+        <maml:name>Path</maml:name>
+        <maml:description>
+          <maml:para>Registry key path to remove.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+    </command:parameters>
+    <command:examples>
+      <command:example>
+        <command:title>-------------------------- EXAMPLE 1 --------------------------</command:title>
+        <maml:code>Remove-TBORegKey -ServerName corp1-web01.corp1.lab.home-labs.lol -Path HKLM\SOFTWARE\TBO</maml:code>
+        <maml:remarks>
+          <maml:para>Deletes a key on the remote host.</maml:para>
+        </maml:remarks>
+      </command:example>
+    </command:examples>
+  </command:command>
+
+  <command:command>
+    <command:details>
+      <command:name>Get-TBORegValue</command:name>
+      <command:verb>Get</command:verb>
+      <command:noun>TBORegValue</command:noun>
+      <maml:description>
+        <maml:para>Gets values from a remote registry key.</maml:para>
+      </maml:description>
+    </command:details>
+    <command:syntax>
+      <command:syntaxItem>
+        <command:name>Get-TBORegValue</command:name>
+        <command:parameter required="true" position="0">
+          <maml:name>ServerName</maml:name>
+          <command:parameterValue>String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="true" position="1">
+          <maml:name>Path</maml:name>
+          <command:parameterValue>String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false" position="2">
+          <maml:name>Name</maml:name>
+          <command:parameterValue>String</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" position="0">
+        <maml:name>ServerName</maml:name>
+        <maml:description>
+          <maml:para>Remote host name.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+      <command:parameter required="true" position="1">
+        <maml:name>Path</maml:name>
+        <maml:description>
+          <maml:para>Registry key path to query.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>Name</maml:name>
+        <maml:description>
+          <maml:para>Registry value name. Omit to enumerate all values.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+    </command:parameters>
+    <command:examples>
+      <command:example>
+        <command:title>-------------------------- EXAMPLE 1 --------------------------</command:title>
+        <maml:code>Get-TBORegValue -ServerName corp1-web01.corp1.lab.home-labs.lol -Path HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion</maml:code>
+        <maml:remarks>
+          <maml:para>Lists values from a key.</maml:para>
+        </maml:remarks>
+      </command:example>
+    </command:examples>
+  </command:command>
+
+  <command:command>
+    <command:details>
+      <command:name>Set-TBORegValue</command:name>
+      <command:verb>Set</command:verb>
+      <command:noun>TBORegValue</command:noun>
+      <maml:description>
+        <maml:para>Sets a remote registry value.</maml:para>
+      </maml:description>
+    </command:details>
+    <command:syntax>
+      <command:syntaxItem>
+        <command:name>Set-TBORegValue</command:name>
+        <command:parameter required="true" position="0">
+          <maml:name>ServerName</maml:name>
+          <command:parameterValue>String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="true" position="1">
+          <maml:name>Path</maml:name>
+          <command:parameterValue>String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="true" position="2">
+          <maml:name>Name</maml:name>
+          <command:parameterValue>String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="true" position="3">
+          <maml:name>Value</maml:name>
+          <command:parameterValue>Object</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false">
+          <maml:name>Type</maml:name>
+          <command:parameterValue>RegistryValueType</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" position="0">
+        <maml:name>ServerName</maml:name>
+        <maml:description>
+          <maml:para>Remote host name.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+      <command:parameter required="true" position="1">
+        <maml:name>Path</maml:name>
+        <maml:description>
+          <maml:para>Registry key path that owns the value.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+      <command:parameter required="true" position="2">
+        <maml:name>Name</maml:name>
+        <maml:description>
+          <maml:para>Registry value name.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+      <command:parameter required="true" position="3">
+        <maml:name>Value</maml:name>
+        <maml:description>
+          <maml:para>Value data. The type is inferred unless -Type is specified.</maml:para>
+        </maml:description>
+        <command:parameterValue>Object</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>Type</maml:name>
+        <maml:description>
+          <maml:para>Registry value type override (String, DwordLE, Qword, Binary, etc.).</maml:para>
+        </maml:description>
+        <command:parameterValue>RegistryValueType</command:parameterValue>
+      </command:parameter>
+    </command:parameters>
+    <command:examples>
+      <command:example>
+        <command:title>-------------------------- EXAMPLE 1 --------------------------</command:title>
+        <maml:code>Set-TBORegValue -ServerName corp1-web01.corp1.lab.home-labs.lol -Path HKLM\SOFTWARE\TBO -Name InstallId -Type String -Value "abc123"</maml:code>
+        <maml:remarks>
+          <maml:para>Sets a string value.</maml:para>
+        </maml:remarks>
+      </command:example>
+    </command:examples>
+  </command:command>
+
+  <command:command>
+    <command:details>
+      <command:name>Remove-TBORegValue</command:name>
+      <command:verb>Remove</command:verb>
+      <command:noun>TBORegValue</command:noun>
+      <maml:description>
+        <maml:para>Removes a remote registry value.</maml:para>
+      </maml:description>
+    </command:details>
+    <command:syntax>
+      <command:syntaxItem>
+        <command:name>Remove-TBORegValue</command:name>
+        <command:parameter required="true" position="0">
+          <maml:name>ServerName</maml:name>
+          <command:parameterValue>String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="true" position="1">
+          <maml:name>Path</maml:name>
+          <command:parameterValue>String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="true" position="2">
+          <maml:name>Name</maml:name>
+          <command:parameterValue>String</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" position="0">
+        <maml:name>ServerName</maml:name>
+        <maml:description>
+          <maml:para>Remote host name.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+      <command:parameter required="true" position="1">
+        <maml:name>Path</maml:name>
+        <maml:description>
+          <maml:para>Registry key path that owns the value.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+      <command:parameter required="true" position="2">
+        <maml:name>Name</maml:name>
+        <maml:description>
+          <maml:para>Registry value name to delete.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+    </command:parameters>
+    <command:examples>
+      <command:example>
+        <command:title>-------------------------- EXAMPLE 1 --------------------------</command:title>
+        <maml:code>Remove-TBORegValue -ServerName corp1-web01.corp1.lab.home-labs.lol -Path HKLM\SOFTWARE\TBO -Name InstallId</maml:code>
+        <maml:remarks>
+          <maml:para>Deletes a value from the remote registry.</maml:para>
+        </maml:remarks>
+      </command:example>
+    </command:examples>
+  </command:command>
+</helpItems>

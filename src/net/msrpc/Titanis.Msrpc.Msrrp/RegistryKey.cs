@@ -195,20 +195,25 @@ namespace Titanis.Msrpc.Msrrp
 		public async IAsyncEnumerable<RegistryValueInfo> GetValues(bool includeData, CancellationToken cancellationToken)
 		{
 			var keyInfo = await this.QueryInfo(cancellationToken).ConfigureAwait(false);
+			if (keyInfo.ValueCount == 0)
+				yield break;
 
-			int cbBuffer = keyInfo.MaxValueDataLength;
-			int cbLen = keyInfo.MaxValueDataLength;
-
+			int valueNameChars = Math.Max(1, keyInfo.MaxValueNameLength + 1);
+			int cbBuffer = includeData ? Math.Max(1, keyInfo.MaxValueDataLength) : 0;
 
 			int index = 0;
 			Win32ErrorCode res;
 			RpcPointer<ms_dtyp.RPC_UNICODE_STRING> lpValueNameOut = new();
 			RpcPointer<uint> lpType = new();
 
-			byte[] stubBuffer = new byte[cbBuffer];
+			byte[] stubBuffer = includeData ? new byte[cbBuffer] : Array.Empty<byte>();
 			RpcPointer<ArraySegment<byte>> lpData = includeData ? new(new ArraySegment<byte>(stubBuffer, 0, 0)) : null;
 
-			ms_dtyp.RPC_UNICODE_STRING lpValueNameIn = new() { MaximumLength = (ushort)(keyInfo.MaxValueNameLength * 2), Buffer = new RpcPointer<ArraySegment<char>>(new ArraySegment<char>(new char[keyInfo.MaxValueNameLength], 0, 0)) };
+			ms_dtyp.RPC_UNICODE_STRING lpValueNameIn = new()
+			{
+				MaximumLength = (ushort)(valueNameChars * 2),
+				Buffer = new RpcPointer<ArraySegment<char>>(new ArraySegment<char>(new char[valueNameChars], 0, 0))
+			};
 			RpcPointer<uint> lpcbData = new(includeData ? (uint)cbBuffer : 0);
 			RpcPointer<uint> lpcbLen = new(0U);
 			while ((res = (Win32ErrorCode)await this._owner.proxy.BaseRegEnumValue(
@@ -290,7 +295,8 @@ namespace Titanis.Msrpc.Msrrp
 			byte[]? data = lpData.value.Array;
 			if (data != null && lpcbLen.value < data.Length)
 				Array.Resize(ref data, (int)lpcbLen.value);
-			return new RegistryValueInfo(name, (RegistryValueType)lpType.value, 0, data, null);
+			var valueType = (RegistryValueType)lpType.value;
+			return new RegistryValueInfo(name ?? string.Empty, valueType, 0, data, TryDecodeValue(valueType, data));
 		}
 
 		internal static object? TryDecodeValue(RegistryValueType valueType, byte[]? data)

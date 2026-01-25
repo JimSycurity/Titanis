@@ -64,6 +64,70 @@ $sd = Get-TBOSmbSecurityDescriptor -Path tbo:\Windows
 Set-TBOSmbSecurityDescriptor -Path tbo:\Windows -SecurityDescriptor $sd
 ```
 
+### Remote Registry Cmdlets (MS-RRP)
+
+Remote registry cmdlets use the winreg pipe with backup/restore semantics on every open.
+
+#### Get-TBORegKey
+
+Gets metadata for a remote registry key.
+
+```powershell
+Get-TBORegKey -ServerName corp1-web01.corp1.lab.home-labs.lol -Path HKLM\SOFTWARE
+```
+
+#### Get-TBORegChildItem
+
+Lists subkeys and values beneath a remote registry key.
+
+```powershell
+Get-TBORegChildItem -ServerName corp1-web01.corp1.lab.home-labs.lol -Path HKLM\SOFTWARE
+Get-TBORegChildItem -ServerName corp1-web01.corp1.lab.home-labs.lol -Path HKLM\SOFTWARE -IncludeValues -IncludeData
+Get-TBORegChildItem -ServerName corp1-web01.corp1.lab.home-labs.lol -Path HKLM\SOFTWARE -IncludeSubkeys
+```
+
+#### New-TBORegKey
+
+Creates a remote registry key.
+
+```powershell
+New-TBORegKey -ServerName corp1-web01.corp1.lab.home-labs.lol -Path HKLM\SOFTWARE\TBO
+```
+
+#### Remove-TBORegKey
+
+Removes a remote registry key.
+
+```powershell
+Remove-TBORegKey -ServerName corp1-web01.corp1.lab.home-labs.lol -Path HKLM\SOFTWARE\TBO
+```
+
+#### Get-TBORegValue
+
+Gets values from a remote registry key.
+
+```powershell
+Get-TBORegValue -ServerName corp1-web01.corp1.lab.home-labs.lol -Path 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
+Get-TBORegValue -ServerName corp1-web01.corp1.lab.home-labs.lol -Path 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name ProductName
+```
+
+#### Set-TBORegValue
+
+Sets a remote registry value.
+
+```powershell
+Set-TBORegValue -ServerName corp1-web01.corp1.lab.home-labs.lol -Path HKLM\SOFTWARE\TBO -Name InstallId -Type String -Value "abc123"
+Set-TBORegValue -ServerName corp1-web01.corp1.lab.home-labs.lol -Path HKLM\SOFTWARE\TBO -Name Flags -Type DwordLE -Value 1
+```
+
+#### Remove-TBORegValue
+
+Removes a remote registry value.
+
+```powershell
+Remove-TBORegValue -ServerName corp1-web01.corp1.lab.home-labs.lol -Path HKLM\SOFTWARE\TBO -Name InstallId
+```
+
 ## Local Logging
 
 Set `TITANIS_TBO_LOG` to `1` or to a file path. When set to `1`, logs go to

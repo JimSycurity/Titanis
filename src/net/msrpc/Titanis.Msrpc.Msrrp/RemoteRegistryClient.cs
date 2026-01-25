@@ -2,6 +2,7 @@
 using ms_rrp;
 using Titanis.DceRpc;
 using Titanis.DceRpc.Client;
+using Titanis.Security;
 using Titanis.Winterop;
 
 namespace Titanis.Msrpc.Msrrp
@@ -36,6 +37,9 @@ namespace Titanis.Msrpc.Msrrp
 
 		// [MS-RRP] § 1.9
 		public override string? WellKnownPipeName => "winreg";
+		// Observed
+		/// <inheritdoc/>
+		public sealed override string? ServiceClass => ServiceClassNames.HostU;
 
 		internal winregClientProxy proxy => this._proxy;
 
