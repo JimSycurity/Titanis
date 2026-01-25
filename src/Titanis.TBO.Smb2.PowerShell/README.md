@@ -96,6 +96,15 @@ Get-TBOSmbOpenFiles -ServerName corp1-web01.corp1.lab.home-labs.lol
 Get-TBOSmbOpenFiles -ServerName corp1-web01.corp1.lab.home-labs.lol -BasePath tbo:\Windows -OpenBy psx_l_backupop
 ```
 
+### Get-TBOSmbShares
+
+Lists SMB shares on the server via srvsvc. Some detail levels may require administrative rights; use `-Level Level1` if higher levels return access denied.
+
+```powershell
+Get-TBOSmbShares -ServerName corp1-web01.corp1.lab.home-labs.lol
+Get-TBOSmbShares -ServerName corp1-web01.corp1.lab.home-labs.lol -Level Level1
+```
+
 ### Snapshot Navigation (TimeWarp)
 
 Use the @GMT token from Get-TBOSmbSnapshots to navigate a snapshot. Snapshot paths are read-only.

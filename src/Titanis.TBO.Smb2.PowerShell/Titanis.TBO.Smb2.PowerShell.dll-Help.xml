@@ -543,6 +543,74 @@
 
   <command:command>
     <command:details>
+      <command:name>Get-TBOSmbShares</command:name>
+      <command:verb>Get</command:verb>
+      <command:noun>TBOSmbShares</command:noun>
+      <maml:description>
+        <maml:para>Lists shares on the server via srvsvc.</maml:para>
+        <maml:para>Some detail levels may require administrative rights.</maml:para>
+      </maml:description>
+    </command:details>
+    <command:syntax>
+      <command:syntaxItem>
+        <command:name>Get-TBOSmbShares</command:name>
+        <command:parameter required="true" position="0">
+          <maml:name>ServerName</maml:name>
+          <command:parameterValue>String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false">
+          <maml:name>Level</maml:name>
+          <command:parameterValue>ShareInfoLevel</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false">
+          <maml:name>BufferSize</maml:name>
+          <command:parameterValue>Int32</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" position="0">
+        <maml:name>ServerName</maml:name>
+        <maml:description>
+          <maml:para>DNS name or IP address of the server to query.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>Level</maml:name>
+        <maml:description>
+          <maml:para>Which level of detail to query.</maml:para>
+        </maml:description>
+        <command:parameterValue>ShareInfoLevel</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>BufferSize</maml:name>
+        <maml:description>
+          <maml:para>Max size for response buffer.</maml:para>
+        </maml:description>
+        <command:parameterValue>Int32</command:parameterValue>
+      </command:parameter>
+    </command:parameters>
+    <command:examples>
+      <command:example>
+        <command:title>-------------------------- EXAMPLE 1 --------------------------</command:title>
+        <maml:code>Get-TBOSmbShares -ServerName corp1-web01.corp1.lab.home-labs.lol</maml:code>
+        <maml:remarks>
+          <maml:para>Lists shares using the default detail level.</maml:para>
+        </maml:remarks>
+      </command:example>
+      <command:example>
+        <command:title>-------------------------- EXAMPLE 2 --------------------------</command:title>
+        <maml:code>Get-TBOSmbShares -ServerName corp1-web01.corp1.lab.home-labs.lol -Level Level1</maml:code>
+        <maml:remarks>
+          <maml:para>Lists shares with minimal detail (useful if higher levels return access denied).</maml:para>
+        </maml:remarks>
+      </command:example>
+    </command:examples>
+  </command:command>
+
+  <command:command>
+    <command:details>
       <command:name>Get-TBOSmbSecurityDescriptor</command:name>
       <command:verb>Get</command:verb>
       <command:noun>TBOSmbSecurityDescriptor</command:noun>
