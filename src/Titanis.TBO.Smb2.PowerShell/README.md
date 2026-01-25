@@ -105,6 +105,15 @@ Get-TBOSmbShares -ServerName corp1-web01.corp1.lab.home-labs.lol
 Get-TBOSmbShares -ServerName corp1-web01.corp1.lab.home-labs.lol -Level Level1
 ```
 
+### Get-TBOSmbNics
+
+Queries SMB network interfaces for a server. Accepts UNC or `tbo:\` paths; if the UNC path omits a share, IPC$ is used.
+
+```powershell
+Get-TBOSmbNics -Path \\corp1-web01.corp1.lab.home-labs.lol
+Get-TBOSmbNics -Path tbo:\
+```
+
 ### Snapshot Navigation (TimeWarp)
 
 Use the @GMT token from Get-TBOSmbSnapshots to navigate a snapshot. Snapshot paths are read-only.
