@@ -19,11 +19,26 @@ Set-Location tbo:\
 Get-ChildItem
 ```
 
+## Provider (TBO.Smb2)
+
+The `TBO.Smb2` provider exposes SMB shares through a PowerShell drive. Connections are opened on-demand and use backup intent.
+
+```powershell
+# Use dynamic parameters on New-PSDrive to set credentials or SMB options.
+New-PSDrive -Name tbo -PSProvider 'TBO.Smb2' -Root '\\corp1-web01.corp1.lab.home-labs.lol\C$' `
+  -UserName psx_l_backupop -UserDomain corp1.lab.home-labs.lol -Password 'YourSecurePassword'
+
+Set-Location tbo:\
+Get-ChildItem
+```
+
+Use `Get-Help about_TBO_Smb2_Provider` for supported item types, dynamic parameters, and limitations (for example, content writing is not implemented).
+
 ## Cmdlets
 
 ### Connect-TBOSmbServer
 
-Connects to an SMB2 server with backup privileges and caches the session for later cmdlets.
+Initializes the TBO.Smb2 provider for a server name. Connections are opened on-demand by later cmdlets.
 
 ```powershell
 Connect-TBOSmbServer -ServerName corp1-web01.corp1.lab.home-labs.lol -UserName psx_l_backupop -UserDomain corp1.lab.home-labs.lol -Password 'YourSecurePassword'
@@ -31,7 +46,7 @@ Connect-TBOSmbServer -ServerName corp1-web01.corp1.lab.home-labs.lol -UserName p
 
 ### Set-TBOSmbConnectOptions
 
-Sets connection defaults used by TBO cmdlets and the TBO.Smb2 provider.
+Sets connection defaults used by TBO cmdlets and the TBO.Smb2 provider. Supports the same dynamic parameters as `New-PSDrive` (credentials, SMB dialects, ciphers, signing, name resolution, and more).
 
 ```powershell
 Set-TBOSmbConnectOptions -ServerName corp1-web01.corp1.lab.home-labs.lol -HostName corp1-web01.corp1.lab.home-labs.lol -UserName psx_l_backupop -UserDomain corp1.lab.home-labs.lol -Password 'YourSecurePassword'

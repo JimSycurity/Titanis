@@ -6,7 +6,7 @@
       <command:verb>Connect</command:verb>
       <command:noun>TBOSmbServer</command:noun>
       <maml:description>
-        <maml:para>Connects to an SMB server and caches the session for later cmdlets.</maml:para>
+        <maml:para>Initializes the TBO.Smb2 provider for a server name. Connections are opened on demand by later cmdlets.</maml:para>
       </maml:description>
     </command:details>
     <command:syntax>
@@ -66,7 +66,7 @@
       <command:verb>Set</command:verb>
       <command:noun>TBOSmbConnectOptions</command:noun>
       <maml:description>
-        <maml:para>Sets connection defaults used by the TBO.Smb2 provider and cmdlets.</maml:para>
+        <maml:para>Sets connection defaults used by the TBO.Smb2 provider and cmdlets. Supports dynamic parameters for SMB connection and credential options.</maml:para>
       </maml:description>
     </command:details>
     <command:syntax>
@@ -83,6 +83,153 @@
         <maml:name>ServerName</maml:name>
         <maml:description>
           <maml:para>Server name to scope the connection defaults. Omit to set global defaults.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>HostName</maml:name>
+        <maml:description>
+          <maml:para>Optional host name override used for SPN construction.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>RemotePort</maml:name>
+        <maml:description>
+          <maml:para>Override the SMB port.</maml:para>
+        </maml:description>
+        <command:parameterValue>Int32</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>NameResolveOptions</maml:name>
+        <maml:description>
+          <maml:para>Name resolution options for the SMB target.</maml:para>
+        </maml:description>
+        <command:parameterValue>NameResolverOptions</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>Capabilities</maml:name>
+        <maml:description>
+          <maml:para>SMB capabilities to advertise during negotiation.</maml:para>
+        </maml:description>
+        <command:parameterValue>Smb2Capabilities</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>EnforceVersionCompliance</maml:name>
+        <maml:description>
+          <maml:para>Require the server to negotiate one of the requested dialects.</maml:para>
+        </maml:description>
+        <command:parameterValue>Switch</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>Dialects</maml:name>
+        <maml:description>
+          <maml:para>SMB dialects to offer during negotiation.</maml:para>
+        </maml:description>
+        <command:parameterValue>Smb2Dialect[]</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>SecurityMode</maml:name>
+        <maml:description>
+          <maml:para>SMB security mode to request.</maml:para>
+        </maml:description>
+        <command:parameterValue>Smb2SecurityMode</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>RequireSecureNegotiate</maml:name>
+        <maml:description>
+          <maml:para>Require secure negotiate when supported by the server.</maml:para>
+        </maml:description>
+        <command:parameterValue>Switch</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>ClientGuid</maml:name>
+        <maml:description>
+          <maml:para>Override the SMB client GUID.</maml:para>
+        </maml:description>
+        <command:parameterValue>Guid</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>PreauthSaltLength</maml:name>
+        <maml:description>
+          <maml:para>Preauthentication salt length for SMB 3.1.1.</maml:para>
+        </maml:description>
+        <command:parameterValue>Int32</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>Ciphers</maml:name>
+        <maml:description>
+          <maml:para>Preferred SMB encryption ciphers.</maml:para>
+        </maml:description>
+        <command:parameterValue>Cipher[]</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>SigningAlgorithms</maml:name>
+        <maml:description>
+          <maml:para>Preferred SMB signing algorithms.</maml:para>
+        </maml:description>
+        <command:parameterValue>SigningAlgorithm[]</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>CompressionCapabilities</maml:name>
+        <maml:description>
+          <maml:para>SMB compression capabilities to advertise.</maml:para>
+        </maml:description>
+        <command:parameterValue>CompressionCaps</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>CompressionAlgorithms</maml:name>
+        <maml:description>
+          <maml:para>Preferred SMB compression algorithms.</maml:para>
+        </maml:description>
+        <command:parameterValue>CompressionAlgorithm[]</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>UserName</maml:name>
+        <maml:description>
+          <maml:para>User name for authentication.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>UserDomain</maml:name>
+        <maml:description>
+          <maml:para>Domain for authentication.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>Password</maml:name>
+        <maml:description>
+          <maml:para>Password for authentication.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>NtlmHash</maml:name>
+        <maml:description>
+          <maml:para>Hex-encoded NTLM hash for authentication.</maml:para>
+        </maml:description>
+        <command:parameterValue>HexString</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>Kdc</maml:name>
+        <maml:description>
+          <maml:para>Override the Kerberos KDC host.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>KdcPort</maml:name>
+        <maml:description>
+          <maml:para>Override the Kerberos KDC port.</maml:para>
+        </maml:description>
+        <command:parameterValue>Int32</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>Workstation</maml:name>
+        <maml:description>
+          <maml:para>Workstation name for NTLM authentication.</maml:para>
         </maml:description>
         <command:parameterValue>String</command:parameterValue>
       </command:parameter>
