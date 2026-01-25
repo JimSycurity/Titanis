@@ -12,12 +12,12 @@ Fill in these fields before publishing to the PowerShell Gallery.
 - Tags (comma-separated): ActiveDirectory, Backup Operators, BackupPrivilege, RestorePrivilege
 - LicenseUri: https://github.com/trustedsec/Titanis/blob/public/LICENSE
 - ProjectUri: https://github.com/JimSycurity/Titanis
-- RootModule = 'Titanis.TBO.Smb2.PowerShell.dll'
+- RootModule: Titanis.TBO.Smb2.PowerShell.dll
 - ReleaseNotes:
 - RequireLicenseAcceptance (true/false): false
 - Prerelease:
 - CompatiblePSEditions: Desktop
-- PowerShellVersion: 7
+- PowerShellVersion: 7.0
 
 
 

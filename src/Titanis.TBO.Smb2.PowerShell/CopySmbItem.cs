@@ -59,6 +59,8 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 			if (source.Kind == PathKind.Local && destination.Kind == PathKind.Local)
 				throw new ArgumentException("At least one path must be a UNC path or a TBO.Smb2 PSDrive path.");
+			if (destination.Kind == PathKind.Smb && destination.HasTimeWarpToken)
+				throw new NotSupportedException("Snapshot paths are read-only.");
 			if (this.PreserveSecurityDescriptor.IsPresent && (source.Kind == PathKind.Local || destination.Kind == PathKind.Local))
 				throw new NotSupportedException("PreserveSecurityDescriptor is only supported for SMB-to-SMB copies.");
 
@@ -66,15 +68,18 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 			if (source.Kind == PathKind.Smb && destination.Kind == PathKind.Smb)
 			{
-				await CopySmbToSmbAsync(smbClient, source.SmbPath!, destination.SmbPath!, cancellationToken).ConfigureAwait(false);
+				await CopySmbToSmbAsync(smbClient, source.SmbPath!, source.TimeWarpToken, destination.SmbPath!, cancellationToken).ConfigureAwait(false);
 				return;
 			}
 
 			if (source.Kind == PathKind.Smb)
 			{
-				await CopySmbToLocalAsync(smbClient, source.SmbPath!, destination.LocalPath!, cancellationToken).ConfigureAwait(false);
+				await CopySmbToLocalAsync(smbClient, source.SmbPath!, source.TimeWarpToken, destination.LocalPath!, cancellationToken).ConfigureAwait(false);
 				return;
 			}
+
+			if (destination.HasTimeWarpToken)
+				throw new NotSupportedException("Snapshot paths are read-only.");
 
 			await CopyLocalToSmbAsync(smbClient, source.LocalPath!, destination.SmbPath!, cancellationToken).ConfigureAwait(false);
 		}
@@ -82,6 +87,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		private async Task CopySmbToSmbAsync(
 			Smb2Client smbClient,
 			UncPath sourcePath,
+			DateTime? sourceTimeWarpToken,
 			UncPath destinationPath,
 			CancellationToken cancellationToken)
 		{
@@ -92,7 +98,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			Smb2OpenFile? destFile = null;
 			try
 			{
-				sourceFile = await smbClient.OpenFileReadAsync(sourcePath, cancellationToken).ConfigureAwait(false);
+				sourceFile = await OpenFileReadAsync(smbClient, sourcePath, sourceTimeWarpToken, cancellationToken).ConfigureAwait(false);
 				if (sourceFile.IsDirectory)
 					throw new IOException($"Source path '{sourcePath}' is a directory. Copy-TBOSmbItem supports files only.");
 
@@ -169,6 +175,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		private async Task CopySmbToLocalAsync(
 			Smb2Client smbClient,
 			UncPath sourcePath,
+			DateTime? sourceTimeWarpToken,
 			string destinationPath,
 			CancellationToken cancellationToken)
 		{
@@ -178,7 +185,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			Smb2OpenFile? sourceFile = null;
 			try
 			{
-				sourceFile = await smbClient.OpenFileReadAsync(sourcePath, cancellationToken).ConfigureAwait(false);
+				sourceFile = await OpenFileReadAsync(smbClient, sourcePath, sourceTimeWarpToken, cancellationToken).ConfigureAwait(false);
 				if (sourceFile.IsDirectory)
 					throw new IOException($"Source path '{sourcePath}' is a directory. Copy-TBOSmbItem supports files only.");
 
@@ -386,7 +393,10 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				throw new ArgumentException("Path must be provided.", paramName);
 
 			if (UncPath.TryParse(path, out var uncPath) && uncPath != null)
-				return ResolvedPath.ForSmb(uncPath);
+			{
+				var snapshotPath = ResolveSnapshotPath(uncPath);
+				return ResolvedPath.ForSmb(snapshotPath.ResolvedPath, snapshotPath.TimeWarpToken);
+			}
 
 			ProviderInfo? providerInfo;
 			PSDriveInfo? driveInfo;
@@ -406,7 +416,10 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			if (providerInfo.Name.Equals(SmbProvider.ProviderName, StringComparison.OrdinalIgnoreCase))
 			{
 				if (UncPath.TryParse(providerPath, out var resolvedUnc) && resolvedUnc != null)
-					return ResolvedPath.ForSmb(resolvedUnc);
+				{
+					var snapshotPath = ResolveSnapshotPath(resolvedUnc);
+					return ResolvedPath.ForSmb(snapshotPath.ResolvedPath, snapshotPath.TimeWarpToken);
+				}
 
 				throw new ArgumentException($"Resolved provider path is not a UNC path: {providerPath}", paramName);
 			}
@@ -507,25 +520,104 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 		private readonly struct ResolvedPath
 		{
-			private ResolvedPath(PathKind kind, UncPath? smbPath, string? localPath)
+			private ResolvedPath(PathKind kind, UncPath? smbPath, string? localPath, DateTime? timeWarpToken)
 			{
 				this.Kind = kind;
 				this.SmbPath = smbPath;
 				this.LocalPath = localPath;
+				this.TimeWarpToken = timeWarpToken;
 			}
 
 			public PathKind Kind { get; }
 			public UncPath? SmbPath { get; }
 			public string? LocalPath { get; }
+			public DateTime? TimeWarpToken { get; }
+			public bool HasTimeWarpToken => this.TimeWarpToken.HasValue;
 
-			public static ResolvedPath ForSmb(UncPath path) => new ResolvedPath(PathKind.Smb, path, null);
-			public static ResolvedPath ForLocal(string path) => new ResolvedPath(PathKind.Local, null, path);
+			public static ResolvedPath ForSmb(UncPath path, DateTime? timeWarpToken) => new ResolvedPath(PathKind.Smb, path, null, timeWarpToken);
+			public static ResolvedPath ForLocal(string path) => new ResolvedPath(PathKind.Local, null, path, null);
 		}
 
 		private enum PathKind
 		{
 			Smb,
 			Local
+		}
+
+		private readonly struct SnapshotPath
+		{
+			public SnapshotPath(UncPath resolvedPath, DateTime? timeWarpToken)
+			{
+				this.ResolvedPath = resolvedPath;
+				this.TimeWarpToken = timeWarpToken;
+			}
+
+			public UncPath ResolvedPath { get; }
+			public DateTime? TimeWarpToken { get; }
+		}
+
+		private static SnapshotPath ResolveSnapshotPath(UncPath uncPath)
+		{
+			if (TrySplitTimeWarpToken(uncPath, out var resolvedPath, out var timeWarpToken))
+				return new SnapshotPath(resolvedPath, timeWarpToken);
+
+			return new SnapshotPath(uncPath, null);
+		}
+
+		private static bool TrySplitTimeWarpToken(UncPath uncPath, out UncPath resolvedPath, out DateTime? timeWarpToken)
+		{
+			resolvedPath = uncPath;
+			timeWarpToken = null;
+
+			var relativePath = uncPath.ShareRelativePath;
+			if (string.IsNullOrEmpty(relativePath))
+				return false;
+
+			var separatorIndex = relativePath.IndexOf('\\');
+			var firstSegment = separatorIndex >= 0 ? relativePath.Substring(0, separatorIndex) : relativePath;
+			if (!firstSegment.StartsWith("@GMT-", StringComparison.OrdinalIgnoreCase))
+				return false;
+
+			try
+			{
+				var snapshot = FileSnapshotInfo.Parse(firstSegment.ToUpperInvariant());
+				timeWarpToken = snapshot.Timestamp;
+			}
+			catch
+			{
+				return false;
+			}
+
+			var remainder = separatorIndex >= 0 ? relativePath.Substring(separatorIndex + 1) : null;
+			resolvedPath = string.IsNullOrEmpty(remainder)
+				? new UncPath(uncPath.ServerName, uncPath.Port, uncPath.ShareName, string.Empty)
+				: new UncPath(uncPath.ServerName, uncPath.Port, uncPath.ShareName, remainder);
+			return true;
+		}
+
+		private static async Task<Smb2OpenFile> OpenFileReadAsync(
+			Smb2Client smbClient,
+			UncPath path,
+			DateTime? timeWarpToken,
+			CancellationToken cancellationToken)
+		{
+			if (!timeWarpToken.HasValue)
+				return await smbClient.OpenFileReadAsync(path, cancellationToken).ConfigureAwait(false);
+
+			var createInfo = new Smb2CreateInfo
+			{
+				CreateDisposition = Smb2CreateDisposition.Open,
+				DesiredAccess = (uint)Smb2AccessRights.DefaultOpenReadAccess,
+				ShareAccess = Smb2ShareAccess.Read,
+				ImpersonationLevel = Smb2ImpersonationLevel.Impersonation,
+				CreateOptions = Smb2FileCreateOptions.NonDirectory
+					| Smb2FileCreateOptions.SynchronousIoNonalert
+					| Smb2FileCreateOptions.OpenForBackupIntent,
+				FileAttributes = Winterop.FileAttributes.Normal,
+				TimeWarpToken = timeWarpToken
+			};
+
+			return (Smb2OpenFile)await smbClient.CreateFileAsync(path, createInfo, FileAccess.Read, cancellationToken).ConfigureAwait(false);
 		}
 
 		private readonly struct Smb2FileBasicInfoSnapshot

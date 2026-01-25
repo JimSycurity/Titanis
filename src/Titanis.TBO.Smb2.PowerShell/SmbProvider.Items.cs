@@ -1,15 +1,78 @@
 using System;
 using System.IO;
+using System.Management.Automation;
 using Titanis.Net;
 using Titanis.Smb2;
 using Titanis.Winterop.Security;
 using Smb2AccessRights = Titanis.Smb2.Smb2FileAccessRights;
 using Winterop = Titanis.Winterop;
+using Titanis.IO;
 
 namespace Titanis.Tbo.Smb2.PowerShell
 {
 	public partial class SmbProvider
 	{
+		protected override void CopyItem(string path, string copyPath, bool recurse)
+		{
+			if (string.IsNullOrWhiteSpace(path))
+				throw new ArgumentException("Path must be provided.", nameof(path));
+			if (string.IsNullOrWhiteSpace(copyPath))
+				throw new ArgumentException("Destination must be provided.", nameof(copyPath));
+			if (recurse)
+				throw new NotSupportedException("Directory copy is not supported.");
+
+			var snapshotPath = ResolveSnapshotPath(path);
+			UncPath sourcePath = snapshotPath.ResolvedPath;
+			if (string.IsNullOrEmpty(sourcePath.ShareRelativePath))
+				throw new ArgumentException("Source path must include a file name.", nameof(path));
+
+			ProviderInfo? providerInfo;
+			PSDriveInfo? driveInfo;
+			string destinationPath;
+			try
+			{
+				destinationPath = this.SessionState.Path.GetUnresolvedProviderPathFromPSPath(copyPath, out providerInfo, out driveInfo);
+			}
+			catch (Exception ex)
+			{
+				throw new ArgumentException($"Destination path could not be resolved: {copyPath}", nameof(copyPath), ex);
+			}
+
+			if (providerInfo == null || !providerInfo.Name.Equals("FileSystem", StringComparison.OrdinalIgnoreCase))
+				throw new NotSupportedException("Copy-Item from TBO.Smb2 only supports FileSystem destinations.");
+
+			var fileName = Path.GetFileName(sourcePath.ShareRelativePath ?? string.Empty);
+			if (string.IsNullOrEmpty(fileName))
+				throw new IOException($"Source path '{sourcePath}' does not specify a file name.");
+			if (Directory.Exists(destinationPath))
+				destinationPath = Path.Combine(destinationPath, fileName);
+			if (Directory.Exists(destinationPath))
+				throw new IOException($"Destination path '{destinationPath}' is a directory.");
+
+			this.BeginOperation(cancellationToken =>
+			{
+				using var file = (Smb2OpenFile)this.smb.SmbClient.CreateFileAsync(sourcePath, new Smb2CreateInfo
+				{
+					CreateDisposition = Smb2CreateDisposition.Open,
+					DesiredAccess = (uint)Smb2AccessRights.DefaultOpenReadAccess,
+					ShareAccess = Smb2ShareAccess.Read,
+					ImpersonationLevel = Smb2ImpersonationLevel.Impersonation,
+					CreateOptions = Smb2FileCreateOptions.NonDirectory
+						| Smb2FileCreateOptions.SynchronousIoNonalert
+						| Smb2FileCreateOptions.OpenForBackupIntent,
+					FileAttributes = Winterop.FileAttributes.Normal,
+					TimeWarpToken = snapshotPath.TimeWarpToken
+				}, FileAccess.Read, cancellationToken).Result;
+
+				if (file.IsDirectory)
+					throw new IOException($"Source path '{sourcePath}' is a directory.");
+
+				using var sourceStream = file.GetStream(false);
+				using var destStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.Read, Smb2Client.DefaultChunkSize, FileOptions.SequentialScan);
+				sourceStream.CopyToAsync2(destStream, Smb2Client.DefaultChunkSize, cancellationToken).GetAwaiter().GetResult();
+			});
+		}
+
 		protected override void RemoveItem(string path, bool recurse)
 		{
 			if (string.IsNullOrWhiteSpace(path))

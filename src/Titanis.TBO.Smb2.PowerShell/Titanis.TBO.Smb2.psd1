@@ -10,7 +10,7 @@
     FunctionsToExport=@()
     GUID='807d7d1b-e298-4078-9173-18b4f2ab75f2'
     ModuleVersion='0.7.0'
-    PowerShellVersion='7'
+    PowerShellVersion='7.0'
     PrivateData=@{
         PSData=@{
             LicenseUri='https://github.com/trustedsec/Titanis/blob/public/LICENSE'
@@ -19,5 +19,5 @@
             Tags=@('ActiveDirectory',                'Backup Operators',                'BackupPrivilege',                'RestorePrivilege')
         }
     }
-    RootModule='Titanis.TBO.Smb2.psm1'
+    RootModule='Titanis.TBO.Smb2.PowerShell.dll'
 }

@@ -61,7 +61,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 			var remainder = separatorIndex >= 0 ? relativePath.Substring(separatorIndex + 1) : null;
 			resolvedPath = string.IsNullOrEmpty(remainder)
-				? uncPath.ShareUncPath
+				? new UncPath(uncPath.ServerName, uncPath.Port, uncPath.ShareName, string.Empty)
 				: new UncPath(uncPath.ServerName, uncPath.Port, uncPath.ShareName, remainder);
 			return true;
 		}

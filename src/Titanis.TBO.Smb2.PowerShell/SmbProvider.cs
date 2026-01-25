@@ -250,6 +250,8 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				{
 					foreach (var entry in dir.QueryDirAsync("*", Smb2Directory.Smb2DirQueryOptions.QueryReparseInfo, SecurityInfo.None, Smb2Directory.DefaultQueryBufferSize, cancellationToken).Result)
 					{
+						if (string.IsNullOrEmpty(entry.FileName))
+							continue;
 						if (entry.FileName is "." or "..")
 							continue;
 						UncPath itemPath = snapshotPath.OriginalPath.Append(entry.FileName);
@@ -287,7 +289,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			{
 				try
 				{
-					using (this.SmbClient.CreateFileAsync(UncPath.Parse(path), new Smb2CreateInfo
+					using (this.SmbClient.CreateFileAsync(uncPath, new Smb2CreateInfo
 					{
 						CreateDisposition = Smb2CreateDisposition.Open,
 						DesiredAccess = (uint)Smb2AccessRights.DefaultOpenReadAccess,

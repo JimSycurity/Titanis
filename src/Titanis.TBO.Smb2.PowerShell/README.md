@@ -84,6 +84,7 @@ Lists available VSS snapshots for a file or directory.
 ```powershell
 Get-TBOSmbSnapshots -Path tbo:\Windows\System32\config\SAM
 Get-TBOSmbSnapshots -Path \\corp1-web01\C$\Windows\System32\config\SAM
+Set-Location tbo:\@GMT-2026.01.25-20.47.30\Windows\System32\config
 ```
 
 ### Snapshot Navigation (TimeWarp)
