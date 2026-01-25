@@ -77,6 +77,15 @@ Copy-TBOSmbItem -Source C:\Temp\local.txt -Destination tbo:\Temp\local.txt -Crea
 Copy-TBOSmbItem -Source C:\Temp\local.txt -Destination tbo:\Temp\local.txt -Force
 ```
 
+### Get-TBOSmbSnapshots
+
+Lists available VSS snapshots for a file or directory.
+
+```powershell
+Get-TBOSmbSnapshots -Path tbo:\Windows\System32\config\SAM
+Get-TBOSmbSnapshots -Path \\corp1-web01\C$\Windows\System32\config\SAM
+```
+
 ### Provider Item Operations
 
 Use native PowerShell cmdlets for links, mount points, and touch-style updates.
