@@ -169,19 +169,24 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 		protected override void NewItem(string path, string itemTypeName, object newItemValue)
 		{
-			UncPath uncPath = UncPath.Parse(path);
+			var snapshotPath = ResolveSnapshotPath(path);
+			if (snapshotPath.HasTimeWarpToken)
+				throw new NotSupportedException("Snapshot paths are read-only.");
 
 			this.BeginOperation(cancellationToken =>
 			{
 				var newItemParams = this.DynamicParameters as SmbNewItemParams ?? new SmbNewFileItemParams();
-				return newItemParams.Create(this.SmbClient, uncPath, cancellationToken);
+				return newItemParams.Create(this.SmbClient, snapshotPath.ResolvedPath, cancellationToken);
 			});
 		}
 
 		protected override bool IsItemContainer(string path)
 		{
-			if (!UncPath.TryParse(path, out var uncPath))
+			if (!UncPath.TryParse(path, out var parsedPath))
 				return false;
+
+			var snapshotPath = ResolveSnapshotPath(parsedPath!);
+			UncPath uncPath = snapshotPath.ResolvedPath;
 
 			if (string.IsNullOrEmpty(uncPath.ShareRelativePath))
 				return true;
@@ -195,7 +200,8 @@ namespace Titanis.Tbo.Smb2.PowerShell
 					ShareAccess = Smb2ShareAccess.Read,
 					ImpersonationLevel = Smb2ImpersonationLevel.Impersonation,
 					CreateOptions = Smb2FileCreateOptions.SynchronousIoNonalert | Smb2FileCreateOptions.OpenForBackupIntent,
-					FileAttributes = Winterop.FileAttributes.Normal
+					FileAttributes = Winterop.FileAttributes.Normal,
+					TimeWarpToken = snapshotPath.TimeWarpToken
 				}, FileAccess.Read, cancellationToken).Result)
 				{
 					return file.IsDirectory;
@@ -220,7 +226,8 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 		protected override void GetChildItems(string path, bool recurse, uint depth)
 		{
-			UncPath uncPath = UncPath.Parse(path);
+			var snapshotPath = ResolveSnapshotPath(path);
+			UncPath uncPath = snapshotPath.ResolvedPath;
 
 			this.BeginOperation(cancellationToken =>
 			{
@@ -237,6 +244,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 					ImpersonationLevel = Smb2ImpersonationLevel.Impersonation,
 					RequestMaximalAccess = true,
 					QueryOnDiskId = true,
+					TimeWarpToken = snapshotPath.TimeWarpToken,
 					OplockLevel = Smb2OplockLevel.None
 				}, FileAccess.Read, cancellationToken).Result)
 				{
@@ -244,7 +252,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 					{
 						if (entry.FileName is "." or "..")
 							continue;
-						UncPath itemPath = uncPath.Append(entry.FileName);
+						UncPath itemPath = snapshotPath.OriginalPath.Append(entry.FileName);
 						var smbItem = new SmbItem(itemPath, entry);
 						this.WriteItemObject(smbItem, itemPath.ToString(), 0 != (entry.FileAttributes & Winterop.FileAttributes.Directory));
 					}
@@ -269,6 +277,9 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			if (!UncPath.TryParse(path, out UncPath uncPath))
 				return false;
 
+			var snapshotPath = ResolveSnapshotPath(uncPath);
+			uncPath = snapshotPath.ResolvedPath;
+
 			if (string.IsNullOrEmpty(uncPath.ShareRelativePath))
 				return true;
 
@@ -285,7 +296,8 @@ namespace Titanis.Tbo.Smb2.PowerShell
 						CreateOptions = Smb2FileCreateOptions.SynchronousIoNonalert
 							| Smb2FileCreateOptions.OpenReparsePoint
 							| Smb2FileCreateOptions.OpenForBackupIntent,
-						FileAttributes = Winterop.FileAttributes.Normal
+						FileAttributes = Winterop.FileAttributes.Normal,
+						TimeWarpToken = snapshotPath.TimeWarpToken
 					}, FileAccess.Read, token).Result)
 					{
 						return true;
@@ -313,7 +325,8 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 		public IContentReader GetContentReader(string path)
 		{
-			UncPath uncPath = UncPath.Parse(path);
+			var snapshotPath = ResolveSnapshotPath(path);
+			UncPath uncPath = snapshotPath.ResolvedPath;
 
 			return this.BeginOperation(cancellationToken =>
 			{
@@ -321,7 +334,16 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				var encoding = parms?.Encoding ?? Encoding.UTF8;
 				var raw = parms?.Raw.IsPresent ?? false;
 
-				var file = this.smb.SmbClient.OpenFileReadAsync(uncPath, cancellationToken).Result;
+				var file = (Smb2OpenFile)this.smb.SmbClient.CreateFileAsync(uncPath, new Smb2CreateInfo
+				{
+					CreateDisposition = Smb2CreateDisposition.Open,
+					DesiredAccess = (uint)Smb2AccessRights.DefaultOpenReadAccess,
+					ShareAccess = Smb2ShareAccess.Read,
+					ImpersonationLevel = Smb2ImpersonationLevel.Impersonation,
+					CreateOptions = Smb2FileCreateOptions.NonDirectory | Smb2FileCreateOptions.SynchronousIoNonalert,
+					FileAttributes = Winterop.FileAttributes.Normal,
+					TimeWarpToken = snapshotPath.TimeWarpToken
+				}, FileAccess.Read, cancellationToken).Result;
 				var stream = file.GetStream(true);
 				return (IContentReader)new SmbContentReader(stream, encoding, raw);
 			});

@@ -14,6 +14,7 @@ LONG DESCRIPTION
 
 PROVIDER FEATURES
     - Navigation: Get-ChildItem, Set-Location, and directory enumeration.
+    - Snapshots: Use @GMT tokens from Get-TBOSmbSnapshots to browse VSS snapshots (read-only).
     - New-Item: File, Directory, Symlink, SymlinkDir, Junction, MountPoint.
     - Remove-Item: Removes files, directories, symlinks, junctions, and mount points.
     - Set-ItemProperty: Updates timestamps or attributes (touch behavior).
@@ -54,6 +55,11 @@ EXAMPLES
 
     Example 5: Touch a file (update last write time)
         Set-ItemProperty -Path tbo:\Temp\example.txt -Name LastWriteTime -Value (Get-Date)
+
+    Example 6: Navigate a snapshot
+        $token = (Get-TBOSmbSnapshots -Path tbo:\temp | Select-Object -First 1).Token
+        Set-Location "tbo:\$token\temp"
+        Get-ChildItem
 
 NOTES
     - Use Copy-TBOSmbItem for file copies between local and SMB paths.

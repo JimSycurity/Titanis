@@ -86,6 +86,16 @@ Get-TBOSmbSnapshots -Path tbo:\Windows\System32\config\SAM
 Get-TBOSmbSnapshots -Path \\corp1-web01\C$\Windows\System32\config\SAM
 ```
 
+### Snapshot Navigation (TimeWarp)
+
+Use the @GMT token from Get-TBOSmbSnapshots to navigate a snapshot. Snapshot paths are read-only.
+
+```powershell
+$token = (Get-TBOSmbSnapshots -Path tbo:\temp | Select-Object -First 1).Token
+Set-Location "tbo:\$token\temp"
+Get-ChildItem
+```
+
 ### Provider Item Operations
 
 Use native PowerShell cmdlets for links, mount points, and touch-style updates.

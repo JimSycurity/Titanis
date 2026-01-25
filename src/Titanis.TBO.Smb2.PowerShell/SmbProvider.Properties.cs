@@ -16,7 +16,8 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			if (string.IsNullOrWhiteSpace(path))
 				throw new ArgumentException("Path must be provided.", nameof(path));
 
-			UncPath uncPath = UncPath.Parse(path);
+			var snapshotPath = ResolveSnapshotPath(path);
+			UncPath uncPath = snapshotPath.ResolvedPath;
 			if (string.IsNullOrEmpty(uncPath.ShareRelativePath))
 				throw new ArgumentException("Path must include a file or directory name.", nameof(path));
 
@@ -25,7 +26,9 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				Smb2OpenFileObjectBase? file = null;
 				try
 				{
-					file = this.smb.SmbClient.CreateFileAsync(uncPath, CreateAttributeReadInfo(), System.IO.FileAccess.Read, cancellationToken).Result;
+					var createInfo = CreateAttributeReadInfo();
+					createInfo.TimeWarpToken = snapshotPath.TimeWarpToken;
+					file = this.smb.SmbClient.CreateFileAsync(uncPath, createInfo, System.IO.FileAccess.Read, cancellationToken).Result;
 					var basicInfo = file.GetBasicInfoAsync(cancellationToken).Result;
 
 					var output = new PSObject();
@@ -35,7 +38,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 					AddPropertyIfRequested(output, providerSpecificPickList, "ChangeTime", basicInfo.ChangeTime);
 					AddPropertyIfRequested(output, providerSpecificPickList, "Attributes", basicInfo.Attributes);
 
-					this.WritePropertyObject(output, uncPath.ToString());
+					this.WritePropertyObject(output, snapshotPath.OriginalPath.ToString());
 				}
 				finally
 				{
@@ -55,7 +58,11 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			if (string.IsNullOrWhiteSpace(path))
 				throw new ArgumentException("Path must be provided.", nameof(path));
 
-			UncPath uncPath = UncPath.Parse(path);
+			var snapshotPath = ResolveSnapshotPath(path);
+			if (snapshotPath.HasTimeWarpToken)
+				throw new NotSupportedException("Snapshot paths are read-only.");
+
+			UncPath uncPath = snapshotPath.ResolvedPath;
 			if (string.IsNullOrEmpty(uncPath.ShareRelativePath))
 				throw new ArgumentException("Path must include a file or directory name.", nameof(path));
 

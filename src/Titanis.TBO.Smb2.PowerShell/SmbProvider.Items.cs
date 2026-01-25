@@ -15,7 +15,11 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			if (string.IsNullOrWhiteSpace(path))
 				throw new ArgumentException("Path must be provided.", nameof(path));
 
-			UncPath uncPath = UncPath.Parse(path);
+			var snapshotPath = ResolveSnapshotPath(path);
+			if (snapshotPath.HasTimeWarpToken)
+				throw new NotSupportedException("Snapshot paths are read-only.");
+
+			UncPath uncPath = snapshotPath.ResolvedPath;
 			if (string.IsNullOrEmpty(uncPath.ShareRelativePath))
 				throw new ArgumentException("Path must include a file or directory name.", nameof(path));
 
