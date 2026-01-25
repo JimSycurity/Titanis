@@ -1,7 +1,7 @@
 <!-- Solution wide -->
 <Project>
 	<PropertyGroup>
-		<UseArtifactsOutput>true</UseArtifactsOutput>
+		<UseArtifactsOutput Condition="'$(UseArtifactsOutput)'==''">true</UseArtifactsOutput>
 		<ArtifactsPath>$(BUILD_BINARIESDIRECTORY)</ArtifactsPath>
 		<ArtifactsPath Condition="'$(ArtifactsPath)'==''">$(SolutionDir)artifacts\</ArtifactsPath>
 		<ArtifactsBasePath>$(ArtifactsPath)</ArtifactsBasePath>

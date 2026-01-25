@@ -53,4 +53,26 @@
     <ProjectReference Include="..\security\Titanis.Security\Titanis.Security.csproj" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <BinPublishDir>$([System.IO.Path]::Combine('$(MSBuildProjectDirectory)', 'bin', '$(Configuration)', '$(TargetFramework)', 'publish'))</BinPublishDir>
+  </PropertyGroup>
+
+  <!-- PSPublishModule expects publish output under bin\Configuration\TargetFramework\publish. -->
+  <Target Name="CopyPublishOutputToBin" AfterTargets="Publish">
+    <PropertyGroup>
+      <ResolvedPublishDir Condition="'$(PublishDir)' != ''">$([System.IO.Path]::GetFullPath('$(PublishDir)'))</ResolvedPublishDir>
+      <ResolvedBinPublishDir>$([System.IO.Path]::GetFullPath('$(BinPublishDir)'))</ResolvedBinPublishDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <PublishOutputFiles Condition="'$(ResolvedPublishDir)' != '' and '$(ResolvedPublishDir)' != '$(ResolvedBinPublishDir)'"
+                          Include="$(PublishDir)**\*" />
+    </ItemGroup>
+    <MakeDir Condition="'$(ResolvedPublishDir)' != '' and '$(ResolvedPublishDir)' != '$(ResolvedBinPublishDir)'"
+             Directories="$(BinPublishDir)" />
+    <Copy Condition="'$(ResolvedPublishDir)' != '' and '$(ResolvedPublishDir)' != '$(ResolvedBinPublishDir)'"
+          SourceFiles="@(PublishOutputFiles)"
+          DestinationFiles="@(PublishOutputFiles->'$(BinPublishDir)%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
 </Project>

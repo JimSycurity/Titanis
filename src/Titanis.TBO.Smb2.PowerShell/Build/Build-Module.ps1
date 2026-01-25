@@ -68,6 +68,15 @@ $manifest = [ordered]@{
 	FormatsToProcess = @($psd1.FormatsToProcess)
 }
 
+$manifestCommand = Get-Command New-ConfigurationManifest -ErrorAction Stop
+if (-not $manifestCommand.Parameters.ContainsKey('RootModule')) {
+	[void]$manifest.Remove('RootModule')
+}
+
+$guidValue = Get-MetadataValue 'GUID'
+if (-not $guidValue -and $psd1.GUID) { $guidValue = $psd1.GUID }
+if ($guidValue) { $manifest.GUID = $guidValue }
+
 $author = Get-MetadataValue 'Author'
 if ($author) { $manifest.Author = $author } elseif ($psd1.Author) { $manifest.Author = $psd1.Author }
 
