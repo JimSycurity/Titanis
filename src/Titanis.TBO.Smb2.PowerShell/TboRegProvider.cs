@@ -295,6 +295,14 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				?? throw new ArgumentException($"Path must be a {ProviderName} PSDrive path: {path}", nameof(path));
 
 			var providerPath = path ?? string.Empty;
+			var providerQualifierIndex = providerPath.IndexOf("::", StringComparison.Ordinal);
+			if (providerQualifierIndex >= 0)
+				providerPath = providerPath.Substring(providerQualifierIndex + 2);
+
+			var drivePrefix = driveInfo.Name + ":";
+			if (providerPath.StartsWith(drivePrefix, StringComparison.OrdinalIgnoreCase))
+				providerPath = providerPath.Substring(drivePrefix.Length);
+
 			providerPath = providerPath.TrimStart('\\');
 
 			var root = driveInfo.Root?.TrimStart('\\').TrimEnd('\\');
