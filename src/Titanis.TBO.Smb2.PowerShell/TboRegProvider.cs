@@ -291,25 +291,12 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 		private string ResolveProviderPath(string path, out TboRegDriveInfo driveInfo)
 		{
-			ProviderInfo? providerInfo;
-			PSDriveInfo? drive;
-			string providerPath;
-			try
-			{
-				providerPath = this.SessionState.Path.GetUnresolvedProviderPathFromPSPath(path, out providerInfo, out drive);
-			}
-			catch (Exception ex)
-			{
-				throw new ArgumentException($"Path could not be resolved: {path}", nameof(path), ex);
-			}
-
-			if (providerInfo == null || !providerInfo.Name.Equals(ProviderName, StringComparison.OrdinalIgnoreCase))
-				throw new ArgumentException($"Path must be a {ProviderName} PSDrive path: {path}", nameof(path));
-
-			driveInfo = drive as TboRegDriveInfo
+			driveInfo = this.PSDriveInfo as TboRegDriveInfo
 				?? throw new ArgumentException($"Path must be a {ProviderName} PSDrive path: {path}", nameof(path));
 
+			var providerPath = path ?? string.Empty;
 			providerPath = providerPath.TrimStart('\\');
+
 			var root = driveInfo.Root?.TrimStart('\\').TrimEnd('\\');
 			if (!string.IsNullOrEmpty(root))
 			{
