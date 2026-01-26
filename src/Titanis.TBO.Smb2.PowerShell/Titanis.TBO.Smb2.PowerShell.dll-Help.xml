@@ -453,6 +453,58 @@
 
   <command:command>
     <command:details>
+      <command:name>Get-TBOSmbStreams</command:name>
+      <command:verb>Get</command:verb>
+      <command:noun>TBOSmbStreams</command:noun>
+      <maml:description>
+        <maml:para>Lists the data streams of a file or directory.</maml:para>
+      </maml:description>
+    </command:details>
+    <command:syntax>
+      <command:syntaxItem>
+        <command:name>Get-TBOSmbStreams</command:name>
+        <command:parameter required="true" position="0">
+          <maml:name>Path</maml:name>
+          <command:parameterValue>String[]</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" position="0">
+        <maml:name>Path</maml:name>
+        <maml:description>
+          <maml:para>Target path. Accepts UNC paths or TBO.Smb2 PSDrive paths.</maml:para>
+        </maml:description>
+        <command:parameterValue>String[]</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>LiteralPath</maml:name>
+        <maml:description>
+          <maml:para>Literal target path. Use when the path contains wildcard characters.</maml:para>
+        </maml:description>
+        <command:parameterValue>String[]</command:parameterValue>
+      </command:parameter>
+    </command:parameters>
+    <command:examples>
+      <command:example>
+        <command:title>-------------------------- EXAMPLE 1 --------------------------</command:title>
+        <maml:code>Get-TBOSmbStreams -Path tbo:\Temp\local.txt</maml:code>
+        <maml:remarks>
+          <maml:para>Lists streams for a file on the TBO.Smb2 drive.</maml:para>
+        </maml:remarks>
+      </command:example>
+      <command:example>
+        <command:title>-------------------------- EXAMPLE 2 --------------------------</command:title>
+        <maml:code>Get-TBOSmbStreams -Path \\corp1-web01.corp1.lab.home-labs.lol\C$\Temp\local.txt</maml:code>
+        <maml:remarks>
+          <maml:para>Lists streams for a file using a UNC path.</maml:para>
+        </maml:remarks>
+      </command:example>
+    </command:examples>
+  </command:command>
+
+  <command:command>
+    <command:details>
       <command:name>Get-TBOSmbOpenFiles</command:name>
       <command:verb>Get</command:verb>
       <command:noun>TBOSmbOpenFiles</command:noun>
