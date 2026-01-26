@@ -51,6 +51,7 @@ Get-ChildItem tbo-reg:\
 
 Write operations use `New-Item`/`Remove-Item` for keys and `Set-ItemProperty`/`Remove-ItemProperty` for values.
 `New-ItemProperty`, `Rename-ItemProperty`, `Copy-ItemProperty`, and `Move-ItemProperty` are not supported.
+Use `Get-Help about_TBO_Reg_Provider` for provider-specific behavior and limitations.
 
 ```powershell
 New-Item -Path tbo-reg:\HKLM\SOFTWARE\TBO
