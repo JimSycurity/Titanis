@@ -79,7 +79,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				ImpersonationLevel = Smb2ImpersonationLevel.Impersonation,
 				RequestMaximalAccess = true,
 				QueryOnDiskId = true,
-				OplockLevel = Smb2OplockLevel.None
+				OplockLevel = Smb2OplockLevel.Lease
 			};
 
 			Smb2Directory? dir = null;

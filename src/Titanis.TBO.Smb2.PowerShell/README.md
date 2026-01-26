@@ -120,7 +120,7 @@ Watches a remote directory for changes. Accepts UNC or `tbo:\` paths. Snapshot p
 
 ```powershell
 Watch-TBOSmb -Path tbo:\Temp
-Watch-TBOSmb -Path \\corp1-web01\C$\Temp -Recursive -ContinueOnErrors -BufferSize 4096
+Watch-TBOSmb -Path \\corp1-web01.corp1.lab.home-labs.lol\C$\Temp -Recursive -ContinueOnErrors -BufferSize 4096
 ```
 
 ### Snapshot Navigation (TimeWarp)
