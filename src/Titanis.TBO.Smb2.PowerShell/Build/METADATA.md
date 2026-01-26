@@ -3,7 +3,7 @@
 Fill in these fields before publishing to the PowerShell Gallery.
 
 - ModuleName: Titanis Backup Operator PowerShell Module
-- ModuleVersion: 0.7.8
+- ModuleVersion: 0.7.9
 - GUID: 807d7d1b-e298-4078-9173-18b4f2ab75f2
 - Author: Jim Sykora
 - CompanyName: SpecterOps
