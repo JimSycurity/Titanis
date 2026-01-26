@@ -30,17 +30,22 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		[Parameter]
 		public SwitchParameter AsBytes { get; set; }
 
+		[Parameter]
+		public SecurityInfo Sections { get; set; } = SecurityInfo.Owner | SecurityInfo.Group | SecurityInfo.Dacl;
+
 		private CancellationTokenSource? _cancelSource;
 
 		protected override void ProcessRecord(SmbProviderInfo smb)
 		{
 			this._cancelSource ??= new CancellationTokenSource();
+			if (this.Sections == SecurityInfo.None)
+				throw new ArgumentException("Sections must include at least one SecurityInfo flag.", nameof(Sections));
 			var format = SecurityDescriptorHelpers.ResolveFormat(this.AsSddl, this.AsBytes, asWindows: false);
 
 			foreach (var path in GetTargetPaths())
 			{
 				var uncPath = ResolveToUncPath(path, this.ParameterSetName);
-				var securityDescriptor = ReadSecurityDescriptor(smb, uncPath, this._cancelSource.Token);
+				var securityDescriptor = ReadSecurityDescriptor(smb, uncPath, this.Sections, this._cancelSource.Token);
 				if (securityDescriptor == null)
 				{
 					this.WriteWarning($"No security descriptor was returned for '{uncPath}'.");
@@ -67,6 +72,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		private SecurityDescriptor? ReadSecurityDescriptor(
 			SmbProviderInfo smb,
 			UncPath uncPath,
+			SecurityInfo sections,
 			CancellationToken cancellationToken)
 		{
 			Smb2OpenFileObjectBase? file = null;
@@ -84,7 +90,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 				file = smb.SmbClient.CreateFileAsync(uncPath, createInfo, FileAccess.Read, cancellationToken).GetAwaiter().GetResult();
 				return file.GetSecurityAsync(
-					SecurityInfo.Owner | SecurityInfo.Group | SecurityInfo.Dacl,
+					sections,
 					DefaultSecurityDescriptorBufferSize,
 					cancellationToken).GetAwaiter().GetResult();
 			}
@@ -141,6 +147,9 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		[Parameter(Mandatory = true, Position = 1)]
 		public SecurityDescriptor SecurityDescriptor { get; set; } = null!;
 
+		[Parameter]
+		public SecurityInfo Sections { get; set; } = SecurityInfo.Owner | SecurityInfo.Group | SecurityInfo.Dacl;
+
 		private CancellationTokenSource? _cancelSource;
 
 		protected override void ProcessRecord(SmbProviderInfo smb)
@@ -150,7 +159,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			foreach (var path in GetTargetPaths())
 			{
 				var uncPath = ResolveToUncPath(path, this.ParameterSetName);
-				var securityInfo = ResolveSecurityInfo(this.SecurityDescriptor);
+				var securityInfo = ResolveSecurityInfo(this.SecurityDescriptor, this.Sections);
 				WriteSecurityDescriptor(smb, uncPath, securityInfo, this._cancelSource.Token);
 			}
 		}
@@ -168,24 +177,23 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				: this.Path;
 		}
 
-		private static SecurityInfo ResolveSecurityInfo(SecurityDescriptor securityDescriptor)
+		private static SecurityInfo ResolveSecurityInfo(SecurityDescriptor securityDescriptor, SecurityInfo requestedSections)
 		{
 			if (securityDescriptor is null) throw new ArgumentNullException(nameof(securityDescriptor));
 
-			SecurityInfo securityInfo = SecurityInfo.None;
-			if (securityDescriptor.Owner != null)
-				securityInfo |= SecurityInfo.Owner;
-			if (securityDescriptor.Group != null)
-				securityInfo |= SecurityInfo.Group;
-			if (securityDescriptor.Dacl != null)
-				securityInfo |= SecurityInfo.Dacl;
-			if (securityDescriptor.Sacl != null)
-				securityInfo |= SecurityInfo.Sacl;
+			if (requestedSections == SecurityInfo.None)
+				throw new ArgumentException("Sections must include at least one SecurityInfo flag.", nameof(requestedSections));
 
-			if (securityInfo == SecurityInfo.None)
-				throw new ArgumentException("Security descriptor does not contain any sections to apply.", nameof(securityDescriptor));
+			if (requestedSections.HasFlag(SecurityInfo.Owner) && securityDescriptor.Owner == null)
+				throw new ArgumentException("Security descriptor does not include an owner section.", nameof(securityDescriptor));
+			if (requestedSections.HasFlag(SecurityInfo.Group) && securityDescriptor.Group == null)
+				throw new ArgumentException("Security descriptor does not include a group section.", nameof(securityDescriptor));
+			if (requestedSections.HasFlag(SecurityInfo.Dacl) && securityDescriptor.Dacl == null)
+				throw new ArgumentException("Security descriptor does not include a DACL.", nameof(securityDescriptor));
+			if (requestedSections.HasFlag(SecurityInfo.Sacl) && securityDescriptor.Sacl == null)
+				throw new ArgumentException("Security descriptor does not include a SACL.", nameof(securityDescriptor));
 
-			return securityInfo;
+			return requestedSections;
 		}
 
 		private void WriteSecurityDescriptor(
