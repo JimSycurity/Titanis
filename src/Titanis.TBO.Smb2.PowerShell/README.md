@@ -186,6 +186,18 @@ $sd = Get-TBOSmbSecurityDescriptor -Path tbo:\Windows
 Set-TBOSmbSecurityDescriptor -Path tbo:\Windows -SecurityDescriptor $sd
 ```
 
+### TBOSD Helper
+
+Converts registry security descriptor values to and from portable `SecurityDescriptor` instances. Use the helper when registry values store base64-encoded security descriptors.
+
+```powershell
+$sdBytes = (Get-TBORegChildItem -ServerName corp1-web01.corp1.lab.home-labs.lol -Path 'HKLM\SYSTEM\CurrentControlSet\Services\Wuauserv\Security' -IncludeValues -IncludeData).Bytes
+$sd = [Titanis.Tbo.Smb2.PowerShell.TBOSD]::FromRegistryBinary($sdBytes)
+
+$base64 = [Titanis.Tbo.Smb2.PowerShell.TBOSD]::ToRegistryBase64($sd)
+$sd2 = [Titanis.Tbo.Smb2.PowerShell.TBOSD]::FromRegistryBase64($base64)
+```
+
 ### Remote Registry Cmdlets (MS-RRP)
 
 Remote registry cmdlets use the winreg pipe with backup/restore semantics on every open.

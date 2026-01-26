@@ -958,6 +958,56 @@
 
   <command:command>
     <command:details>
+      <command:name>TBOSD</command:name>
+      <command:verb>Use</command:verb>
+      <command:noun>TBOSD</command:noun>
+      <maml:description>
+        <maml:para>Converts registry security descriptor values to and from portable SecurityDescriptor instances.</maml:para>
+      </maml:description>
+    </command:details>
+    <command:syntax>
+      <command:syntaxItem>
+        <command:name>TBOSD</command:name>
+        <command:parameter>
+          <maml:name>FromRegistryBinary</maml:name>
+          <command:parameterValue>Byte[]</command:parameterValue>
+        </command:parameter>
+        <command:parameter>
+          <maml:name>FromRegistryBase64</maml:name>
+          <command:parameterValue>String</command:parameterValue>
+        </command:parameter>
+        <command:parameter>
+          <maml:name>ToRegistryBinary</maml:name>
+          <command:parameterValue>SecurityDescriptor</command:parameterValue>
+        </command:parameter>
+        <command:parameter>
+          <maml:name>ToRegistryBase64</maml:name>
+          <command:parameterValue>SecurityDescriptor</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:examples>
+      <command:example>
+        <command:title>-------------------------- EXAMPLE 1 --------------------------</command:title>
+        <maml:code>$sdBytes = (Get-TBORegChildItem -ServerName corp1-web01.corp1.lab.home-labs.lol -Path 'HKLM\SYSTEM\CurrentControlSet\Services\Wuauserv\Security' -IncludeValues -IncludeData).Bytes
+$sd = [Titanis.Tbo.Smb2.PowerShell.TBOSD]::FromRegistryBinary($sdBytes)</maml:code>
+        <maml:remarks>
+          <maml:para>Converts a registry binary value to a SecurityDescriptor.</maml:para>
+        </maml:remarks>
+      </command:example>
+      <command:example>
+        <command:title>-------------------------- EXAMPLE 2 --------------------------</command:title>
+        <maml:code>$base64 = [Titanis.Tbo.Smb2.PowerShell.TBOSD]::ToRegistryBase64($sd)
+$sd2 = [Titanis.Tbo.Smb2.PowerShell.TBOSD]::FromRegistryBase64($base64)</maml:code>
+        <maml:remarks>
+          <maml:para>Converts to and from the base64 form stored in registry values.</maml:para>
+        </maml:remarks>
+      </command:example>
+    </command:examples>
+  </command:command>
+
+  <command:command>
+    <command:details>
       <command:name>Set-TBOSmbSecurityDescriptor</command:name>
       <command:verb>Set</command:verb>
       <command:noun>TBOSmbSecurityDescriptor</command:noun>
