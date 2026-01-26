@@ -1,9 +1,12 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.Management.Automation;
 using System.Management.Automation.Provider;
+using System.Text;
 using System.Threading;
 using Titanis;
 using Titanis.Msrpc.Msrrp;
@@ -41,7 +44,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 	/// Implements a <see cref="NavigationCmdletProvider"/> for remote registry access.
 	/// </summary>
 	[CmdletProvider(ProviderName, ProviderCapabilities.None)]
-	public sealed class TboRegProvider : NavigationCmdletProvider
+	public sealed class TboRegProvider : NavigationCmdletProvider, IPropertyCmdletProvider, IDynamicPropertyCmdletProvider
 	{
 		public const string ProviderName = "TBO.Reg";
 		private const RegistryKeyOptions BackupOptions = RegistryKeyOptions.BackupRestore;
@@ -241,6 +244,186 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			});
 		}
 
+		protected override void NewItem(string path, string itemTypeName, object newItemValue)
+		{
+			if (!string.IsNullOrWhiteSpace(itemTypeName)
+				&& !string.Equals(itemTypeName, "Key", StringComparison.OrdinalIgnoreCase))
+				throw new NotSupportedException($"Unsupported item type '{itemTypeName}'. Only registry keys are supported.");
+
+			var providerPath = ResolveProviderPath(path, out var drive);
+			if (IsRootPath(providerPath) || IsHivePath(providerPath))
+				throw new InvalidOperationException("Cannot create a registry hive.");
+
+			this.BeginOperation(token =>
+			{
+				var parsed = RegistryPathParser.Parse(providerPath, nameof(path));
+				if (parsed.IsRoot)
+					throw new InvalidOperationException("Cannot create a root registry key.");
+
+				var subkeyPath = parsed.SubkeyPath!;
+				var parentPath = RegistryPath.GetParentKeyNameFromPath(subkeyPath);
+				var subkeyName = RegistryPath.GetSubkeyNameFromPath(subkeyPath);
+				var parentSpec = new RegistryPathSpec(parsed.RootKey, parsed.RootName, parentPath);
+
+				using var session = OpenRegistrySession(drive.ServerName, token);
+				using var parentKey = OpenRegistryKey(
+					session.Client,
+					parentSpec,
+					RegistryAccessRights.CreateSubkey,
+					RegistryAccessRights.EnumerateSubkeys,
+					token);
+
+				var createAccess = RegistryAccessRights.CreateSubkey | RegistryAccessRights.QueryValue | RegistryAccessRights.EnumerateSubkeys;
+				using var created = parentKey.CreateSubkey(subkeyName, createAccess, BackupOptions, token).GetAwaiter().GetResult();
+				var info = created.QueryInfo(token).GetAwaiter().GetResult();
+				this.WriteItemObject(new TboRegistryKeyInfo(drive.ServerName, parsed.KeyPath, info), parsed.KeyPath, true);
+			});
+		}
+
+		protected override void RemoveItem(string path, bool recurse)
+		{
+			var providerPath = ResolveProviderPath(path, out var drive);
+			if (IsRootPath(providerPath) || IsHivePath(providerPath))
+				throw new InvalidOperationException("Cannot remove a registry hive.");
+
+			this.BeginOperation(token =>
+			{
+				var parsed = RegistryPathParser.Parse(providerPath, nameof(path));
+				using var session = OpenRegistrySession(drive.ServerName, token);
+
+				var existingKey = TryOpenKey(session.Client, parsed, RegistryAccessRights.EnumerateSubkeys, token);
+				if (existingKey != null)
+				{
+					existingKey.Dispose();
+					RemoveRegistryKey(session.Client, parsed, recurse, token);
+					return;
+				}
+
+				if (TryValueExists(session.Client, parsed, token))
+				{
+					RemoveRegistryValue(session.Client, parsed, token);
+					return;
+				}
+
+				throw new ItemNotFoundException($"Registry path not found: {parsed.KeyPath}");
+			});
+		}
+
+		public void GetProperty(string path, Collection<string> providerSpecificPickList)
+		{
+			var providerPath = ResolveProviderPath(path, out var drive);
+			if (IsRootPath(providerPath) || IsHivePath(providerPath))
+				throw new ArgumentException("Path must be a registry key.", nameof(path));
+
+			this.BeginOperation(token =>
+			{
+				var parsed = RegistryPathParser.Parse(providerPath, nameof(path));
+				using var session = OpenRegistrySession(drive.ServerName, token);
+				using var key = OpenRegistryKey(session.Client, parsed, RegistryAccessRights.QueryValue, token);
+
+				var output = new PSObject();
+				if (providerSpecificPickList != null && providerSpecificPickList.Count > 0)
+				{
+					foreach (var entry in providerSpecificPickList)
+					{
+						var valueName = DenormalizeValueName(entry);
+						var valueInfo = key.GetValue(valueName, token).GetAwaiter().GetResult();
+						output.Properties.Add(new PSNoteProperty(NormalizeValueName(valueInfo.Name), valueInfo.TypedValue));
+					}
+				}
+				else
+				{
+					var values = EnumerateValues(key, includeData: true, token);
+					foreach (var valueInfo in values)
+					{
+						output.Properties.Add(new PSNoteProperty(NormalizeValueName(valueInfo.Name), valueInfo.TypedValue));
+					}
+				}
+
+				this.WritePropertyObject(output, parsed.KeyPath);
+			});
+		}
+
+		public object GetPropertyDynamicParameters(string path, Collection<string> providerSpecificPickList)
+			=> null;
+
+		public void SetProperty(string path, PSObject propertyValue)
+		{
+			if (propertyValue == null)
+				return;
+
+			var providerPath = ResolveProviderPath(path, out var drive);
+			if (IsRootPath(providerPath) || IsHivePath(providerPath))
+				throw new ArgumentException("Path must be a registry key.", nameof(path));
+
+			this.BeginOperation(token =>
+			{
+				var parsed = RegistryPathParser.Parse(providerPath, nameof(path));
+				using var session = OpenRegistrySession(drive.ServerName, token);
+				using var key = OpenRegistryKey(session.Client, parsed, RegistryAccessRights.SetValue, token);
+
+				foreach (var entry in EnumeratePropertyValues(propertyValue))
+				{
+					var valueName = DenormalizeValueName(entry.Key);
+					var valueType = ResolveValueType(entry.Value, null);
+					var data = EncodeValue(valueType, entry.Value);
+					key.SetValue(valueName, valueType, data, token).GetAwaiter().GetResult();
+				}
+			});
+		}
+
+		public object SetPropertyDynamicParameters(string path, PSObject propertyValue)
+			=> null;
+
+		public void ClearProperty(string path, Collection<string> propertyToClear)
+			=> throw new NotSupportedException("Clearing registry values is not supported. Use Remove-ItemProperty instead.");
+
+		public object ClearPropertyDynamicParameters(string path, Collection<string> propertyToClear)
+			=> null;
+
+		public void NewProperty(string path, string propertyName, string propertyTypeName, object value)
+			=> throw new NotSupportedException("New-ItemProperty is not supported. Use Set-ItemProperty instead.");
+
+		public object NewPropertyDynamicParameters(string path, string propertyName, string propertyTypeName, object value)
+			=> null;
+
+		public void RemoveProperty(string path, string propertyName)
+		{
+			var providerPath = ResolveProviderPath(path, out var drive);
+			if (IsRootPath(providerPath) || IsHivePath(providerPath))
+				throw new ArgumentException("Path must be a registry key.", nameof(path));
+
+			this.BeginOperation(token =>
+			{
+				var parsed = RegistryPathParser.Parse(providerPath, nameof(path));
+				using var session = OpenRegistrySession(drive.ServerName, token);
+				using var key = OpenRegistryKey(session.Client, parsed, RegistryAccessRights.SetValue, token);
+				var valueName = DenormalizeValueName(propertyName);
+				key.DeleteValue(valueName, token).GetAwaiter().GetResult();
+			});
+		}
+
+		public object RemovePropertyDynamicParameters(string path, string propertyName)
+			=> null;
+
+		public void RenameProperty(string path, string sourceProperty, string destinationProperty)
+			=> throw new NotSupportedException("Renaming registry values is not supported.");
+
+		public object RenamePropertyDynamicParameters(string path, string sourceProperty, string destinationProperty)
+			=> null;
+
+		public void CopyProperty(string sourcePath, string sourceProperty, string destinationPath, string destinationProperty)
+			=> throw new NotSupportedException("Copying registry values is not supported.");
+
+		public object CopyPropertyDynamicParameters(string sourcePath, string sourceProperty, string destinationPath, string destinationProperty)
+			=> null;
+
+		public void MoveProperty(string sourcePath, string sourceProperty, string destinationPath, string destinationProperty)
+			=> throw new NotSupportedException("Moving registry values is not supported.");
+
+		public object MovePropertyDynamicParameters(string sourcePath, string sourceProperty, string destinationPath, string destinationProperty)
+			=> null;
+
 		private static bool IsRootPath(string providerPath)
 			=> string.IsNullOrWhiteSpace(providerPath) || providerPath == "\\";
 
@@ -336,9 +519,10 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			RemoteRegistryClient client,
 			RegistryPathSpec path,
 			RegistryAccessRights access,
+			RegistryAccessRights? rootAccess,
 			CancellationToken cancellationToken)
 		{
-			var baseAccess = path.IsRoot ? access : RegistryAccessRights.EnumerateSubkeys | access;
+			var baseAccess = rootAccess ?? (path.IsRoot ? access : RegistryAccessRights.EnumerateSubkeys | access);
 			var rootKey = client.OpenRootKey(path.RootKey, baseAccess, cancellationToken).GetAwaiter().GetResult();
 			if (path.IsRoot)
 				return rootKey;
@@ -356,6 +540,13 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				throw;
 			}
 		}
+
+		private static RegistryKey OpenRegistryKey(
+			RemoteRegistryClient client,
+			RegistryPathSpec path,
+			RegistryAccessRights access,
+			CancellationToken cancellationToken)
+			=> OpenRegistryKey(client, path, access, null, cancellationToken);
 
 		private static RegistryKey? TryOpenKey(
 			RemoteRegistryClient client,
@@ -484,6 +675,178 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			{
 				return false;
 			}
+		}
+
+		private static void RemoveRegistryKey(RemoteRegistryClient client, RegistryPathSpec path, bool recurse, CancellationToken cancellationToken)
+		{
+			if (path.IsRoot)
+				throw new InvalidOperationException("Cannot remove a root registry key.");
+
+			var subkeyPath = path.SubkeyPath!;
+			var parentPath = RegistryPath.GetParentKeyNameFromPath(subkeyPath);
+			var subkeyName = RegistryPath.GetSubkeyNameFromPath(subkeyPath);
+			var parentSpec = new RegistryPathSpec(path.RootKey, path.RootName, parentPath);
+
+			using var parentKey = OpenRegistryKey(
+				client,
+				parentSpec,
+				RegistryAccessRights.CreateSubkey | RegistryAccessRights.EnumerateSubkeys,
+				RegistryAccessRights.EnumerateSubkeys,
+				cancellationToken);
+
+			if (recurse)
+			{
+				RemoveSubkeyRecursive(parentKey, subkeyName, cancellationToken);
+				return;
+			}
+
+			parentKey.DeleteSubkey(subkeyName, cancellationToken).GetAwaiter().GetResult();
+		}
+
+		private static void RemoveSubkeyRecursive(RegistryKey parentKey, string subkeyName, CancellationToken cancellationToken)
+		{
+			using var subkey = parentKey.OpenSubkey(
+				subkeyName,
+				RegistryAccessRights.EnumerateSubkeys | RegistryAccessRights.CreateSubkey,
+				BackupOptions,
+				cancellationToken).GetAwaiter().GetResult();
+
+			foreach (var child in EnumerateSubkeys(subkey, cancellationToken))
+			{
+				RemoveSubkeyRecursive(subkey, child.KeyName, cancellationToken);
+			}
+
+			parentKey.DeleteSubkey(subkeyName, cancellationToken).GetAwaiter().GetResult();
+		}
+
+		private static void RemoveRegistryValue(RemoteRegistryClient client, RegistryPathSpec path, CancellationToken cancellationToken)
+		{
+			if (string.IsNullOrEmpty(path.SubkeyPath))
+				throw new InvalidOperationException("Path must specify a registry value.");
+
+			var parentSubkey = RegistryPath.GetParentKeyNameFromPath(path.SubkeyPath);
+			var valueName = RegistryPath.GetSubkeyNameFromPath(path.SubkeyPath);
+			var parentSpec = new RegistryPathSpec(path.RootKey, path.RootName, parentSubkey);
+
+			using var parentKey = OpenRegistryKey(client, parentSpec, RegistryAccessRights.SetValue, cancellationToken);
+			valueName = DenormalizeValueName(valueName);
+			parentKey.DeleteValue(valueName, cancellationToken).GetAwaiter().GetResult();
+		}
+
+		private static IEnumerable<KeyValuePair<string, object?>> EnumeratePropertyValues(PSObject propertyValue)
+		{
+			if (propertyValue.BaseObject is IDictionary dictionary)
+			{
+				foreach (DictionaryEntry entry in dictionary)
+				{
+					var name = entry.Key?.ToString() ?? string.Empty;
+					yield return new KeyValuePair<string, object?>(name, entry.Value);
+				}
+				yield break;
+			}
+
+			foreach (var property in propertyValue.Properties)
+			{
+				if (property == null)
+					continue;
+
+				yield return new KeyValuePair<string, object?>(property.Name ?? string.Empty, property.Value);
+			}
+		}
+
+		private static RegistryValueType ResolveValueType(object? value, RegistryValueType? type)
+		{
+			if (type.HasValue)
+				return type.Value;
+
+			if (value == null)
+				return RegistryValueType.None;
+
+			if (value is string)
+				return RegistryValueType.String;
+			if (value is string[] or IEnumerable<string>)
+				return RegistryValueType.MultiString;
+			if (value is byte[])
+				return RegistryValueType.Binary;
+			if (value is int or uint or short or ushort or byte or sbyte)
+				return RegistryValueType.DwordLE;
+			if (value is long or ulong)
+				return RegistryValueType.Qword;
+
+			throw new ArgumentException("Unable to infer registry value type. Specify the value type explicitly.");
+		}
+
+		private static byte[] EncodeValue(RegistryValueType valueType, object? value)
+		{
+			if (valueType == RegistryValueType.None)
+				return Array.Empty<byte>();
+
+			switch (valueType)
+			{
+				case RegistryValueType.String:
+				case RegistryValueType.ExpandString:
+					return EncodeString(Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty);
+				case RegistryValueType.MultiString:
+					return EncodeMultiString(ResolveStringList(value));
+				case RegistryValueType.DwordLE:
+					return EncodeUInt32(Convert.ToUInt32(value, CultureInfo.InvariantCulture), littleEndian: true);
+				case RegistryValueType.DwordBE:
+					return EncodeUInt32(Convert.ToUInt32(value, CultureInfo.InvariantCulture), littleEndian: false);
+				case RegistryValueType.Qword:
+					return EncodeUInt64(Convert.ToUInt64(value, CultureInfo.InvariantCulture));
+				case RegistryValueType.Binary:
+					if (value is byte[] bytes)
+						return bytes;
+					throw new ArgumentException("Binary registry values must be provided as a byte array.");
+				default:
+					throw new ArgumentException($"Unsupported registry value type: {valueType}.");
+			}
+		}
+
+		private static byte[] EncodeString(string value)
+		{
+			return Encoding.Unicode.GetBytes(value + '\0');
+		}
+
+		private static byte[] EncodeMultiString(IReadOnlyList<string> values)
+		{
+			StringBuilder sb = new StringBuilder();
+			foreach (var item in values)
+			{
+				sb.Append(item);
+				sb.Append('\0');
+			}
+
+			sb.Append('\0');
+			return Encoding.Unicode.GetBytes(sb.ToString());
+		}
+
+		private static IReadOnlyList<string> ResolveStringList(object value)
+		{
+			if (value is string[] array)
+				return array;
+			if (value is IEnumerable<string> enumerable)
+				return new List<string>(enumerable);
+			if (value is string single)
+				return new[] { single };
+
+			throw new ArgumentException("MultiString registry values must be provided as a string array.");
+		}
+
+		private static byte[] EncodeUInt32(uint value, bool littleEndian)
+		{
+			var data = BitConverter.GetBytes(value);
+			if (BitConverter.IsLittleEndian != littleEndian)
+				Array.Reverse(data);
+			return data;
+		}
+
+		private static byte[] EncodeUInt64(ulong value)
+		{
+			var data = BitConverter.GetBytes(value);
+			if (!BitConverter.IsLittleEndian)
+				Array.Reverse(data);
+			return data;
 		}
 	}
 

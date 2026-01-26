@@ -49,6 +49,17 @@ New-PSDrive -Name tbo-reg -PSProvider 'TBO.Reg' -Root corp1-web01.corp1.lab.home
 Get-ChildItem tbo-reg:\
 ```
 
+Write operations use `New-Item`/`Remove-Item` for keys and `Set-ItemProperty`/`Remove-ItemProperty` for values.
+`New-ItemProperty`, `Rename-ItemProperty`, `Copy-ItemProperty`, and `Move-ItemProperty` are not supported.
+
+```powershell
+New-Item -Path tbo-reg:\HKLM\SOFTWARE\TBO
+Set-ItemProperty -Path tbo-reg:\HKLM\SOFTWARE\TBO -Name InstallId -Value "abc123"
+Set-ItemProperty -Path tbo-reg:\HKLM\SOFTWARE\TBO -Name Flags -Value 1
+Remove-ItemProperty -Path tbo-reg:\HKLM\SOFTWARE\TBO -Name Flags
+Remove-Item -Path tbo-reg:\HKLM\SOFTWARE\TBO -Recurse
+```
+
 ## Cmdlets
 
 ### Connect-TBOSmbServer
