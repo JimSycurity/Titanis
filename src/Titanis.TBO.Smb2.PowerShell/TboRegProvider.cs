@@ -128,7 +128,11 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				return true;
 
 			string rootPart = normalized.Split('\\', 2)[0].TrimEnd(':');
-			return RemoteRegistryClient.TryResolveRootKey(rootPart) != RegistryRootKey.Invalid;
+			if (RemoteRegistryClient.TryResolveRootKey(rootPart) != RegistryRootKey.Invalid)
+				return true;
+
+			// Accept provider root and server-scoped paths; validation happens during lookup.
+			return true;
 		}
 
 		protected override bool IsItemContainer(string path)
