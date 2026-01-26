@@ -305,7 +305,19 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			driveInfo = drive as TboRegDriveInfo
 				?? throw new ArgumentException($"Path must be a {ProviderName} PSDrive path: {path}", nameof(path));
 
-			return providerPath.TrimStart('\\');
+			providerPath = providerPath.TrimStart('\\');
+			var root = driveInfo.Root?.TrimStart('\\').TrimEnd('\\');
+			if (!string.IsNullOrEmpty(root))
+			{
+				if (providerPath.Equals(root, StringComparison.OrdinalIgnoreCase))
+					return string.Empty;
+
+				var prefix = root + "\\";
+				if (providerPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+					providerPath = providerPath.Substring(prefix.Length);
+			}
+
+			return providerPath;
 		}
 
 		private SmbProviderInfo GetSmbProviderInfo()
