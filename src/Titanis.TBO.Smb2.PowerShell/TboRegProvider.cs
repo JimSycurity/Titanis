@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
+using System.IO;
 using System.Management.Automation;
 using System.Management.Automation.Provider;
 using System.Text;
@@ -44,7 +45,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 	/// Implements a <see cref="NavigationCmdletProvider"/> for remote registry access.
 	/// </summary>
 	[CmdletProvider(ProviderName, ProviderCapabilities.ShouldProcess)]
-	public sealed class TboRegProvider : NavigationCmdletProvider, IPropertyCmdletProvider, IDynamicPropertyCmdletProvider
+	public sealed class TboRegProvider : NavigationCmdletProvider, IPropertyCmdletProvider, IDynamicPropertyCmdletProvider, IContentCmdletProvider
 	{
 		public const string ProviderName = "TBO.Reg";
 		private const RegistryKeyOptions BackupOptions = RegistryKeyOptions.BackupRestore;
@@ -449,6 +450,43 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			=> throw new NotSupportedException("Moving registry values is not supported.");
 
 		public object MovePropertyDynamicParameters(string sourcePath, string sourceProperty, string destinationPath, string destinationProperty)
+			=> null;
+
+		public void ClearContent(string path)
+			=> throw new NotSupportedException("Clearing registry values is not supported. Use Remove-ItemProperty instead.");
+
+		public object ClearContentDynamicParameters(string path)
+			=> null;
+
+		public IContentReader GetContentReader(string path)
+		{
+			var providerPath = ResolveProviderPath(path, out var drive);
+			if (IsRootPath(providerPath) || IsHivePath(providerPath))
+				throw new ArgumentException("Path must be a registry value.", nameof(path));
+
+			return this.BeginOperation(token =>
+			{
+				var parsed = RegistryPathParser.Parse(providerPath, nameof(path));
+				using var session = OpenRegistrySession(drive.ServerName, token);
+
+				if (TryGetValue(session.Client, parsed, token, out var valueInfo, out _))
+					return (IContentReader)new TboRegContentReader(valueInfo);
+
+				using var key = TryOpenKey(session.Client, parsed, RegistryAccessRights.QueryValue, token);
+				if (key != null)
+					throw new NotSupportedException("Get-Content requires a registry value path. Use Get-ChildItem or Get-ItemProperty for keys.");
+
+				throw new ItemNotFoundException($"Registry value not found: {parsed.KeyPath}");
+			});
+		}
+
+		public object GetContentReaderDynamicParameters(string path)
+			=> null;
+
+		public IContentWriter GetContentWriter(string path)
+			=> throw new NotSupportedException("Writing registry values with Set-Content is not supported. Use Set-ItemProperty instead.");
+
+		public object GetContentWriterDynamicParameters(string path)
 			=> null;
 
 		private static bool IsRootPath(string providerPath)
@@ -926,5 +964,38 @@ namespace Titanis.Tbo.Smb2.PowerShell
 	{
 		[Parameter]
 		public RegistryValueType? Type { get; set; }
+	}
+
+	internal sealed class TboRegContentReader : IContentReader
+	{
+		private readonly object? _content;
+		private bool _completed;
+
+		internal TboRegContentReader(RegistryValueInfo valueInfo)
+		{
+			this._content = valueInfo.TypedValue ?? (object?)valueInfo.Bytes;
+		}
+
+		public void Close()
+			=> Dispose();
+
+		public void Dispose()
+		{
+		}
+
+		public IList Read(long readCount)
+		{
+			if (this._completed)
+				return Array.Empty<object>();
+
+			this._completed = true;
+			if (this._content is null)
+				return Array.Empty<object>();
+
+			return new object[] { this._content };
+		}
+
+		public void Seek(long offset, SeekOrigin origin)
+			=> throw new NotSupportedException("Registry values do not support seeking.");
 	}
 }

@@ -60,6 +60,13 @@ Remove-ItemProperty -Path tbo-reg:\HKLM\SOFTWARE\TBO -Name Flags
 Remove-Item -Path tbo-reg:\HKLM\SOFTWARE\TBO -Recurse
 ```
 
+Use `Get-Content` for registry value data (typed values when available, or `byte[]` for binary types). `Set-Content` is not supported.
+
+```powershell
+Get-Content tbo-reg:\HKLM\SOFTWARE\TBO\InstallId
+Get-Content tbo-reg:\HKLM\SOFTWARE\TBO\Flags
+```
+
 ## Cmdlets
 
 ### Connect-TBOSmbServer
