@@ -69,6 +69,9 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			this._cancelSource?.Cancel();
 		}
 
+		protected override object GetChildItemsDynamicParameters(string path, bool recurse)
+			=> new TboRegGetChildItemParams();
+
 		private void BeginOperation(Action<CancellationToken> action)
 		{
 			var prevSource = this._cancelSource;
@@ -221,6 +224,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				var parsed = RegistryPathParser.Parse(providerPath, nameof(path));
 				using var session = OpenRegistrySession(drive.ServerName, token);
 				using var key = OpenRegistryKey(session.Client, parsed, RegistryAccessRights.EnumerateSubkeys | RegistryAccessRights.QueryValue, token);
+				var includeData = (this.DynamicParameters as TboRegGetChildItemParams)?.IncludeData.IsPresent ?? false;
 
 				foreach (var subkey in EnumerateSubkeys(key, token))
 				{
@@ -228,7 +232,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 					this.WriteItemObject(item, item.KeyPath, true);
 				}
 
-				foreach (var value in EnumerateValues(key, token))
+				foreach (var value in EnumerateValues(key, includeData, token))
 				{
 					var normalizedName = NormalizeValueName(value.Name);
 					var valueInfo = new TboRegistryValueInfo(drive.ServerName, parsed.KeyPath, value);
@@ -391,13 +395,33 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			}
 		}
 
-		private static IEnumerable<RegistryValueInfo> EnumerateValues(RegistryKey key, CancellationToken cancellationToken)
+		private static IEnumerable<RegistryValueInfo> EnumerateValues(RegistryKey key, bool includeData, CancellationToken cancellationToken)
 		{
-			var enumerator = key.GetValues(includeData: false, cancellationToken).GetAsyncEnumerator();
+			if (!includeData)
+				return CollectValues(key, includeData: false, cancellationToken);
+
+			try
+			{
+				return CollectValues(key, includeData: true, cancellationToken);
+			}
+			catch (NotSupportedException)
+			{
+				var values = CollectValues(key, includeData: false, cancellationToken);
+				var fullValues = new List<RegistryValueInfo>(values.Count);
+				foreach (var value in values)
+					fullValues.Add(key.GetValue(value.Name, cancellationToken).GetAwaiter().GetResult());
+				return fullValues;
+			}
+		}
+
+		private static List<RegistryValueInfo> CollectValues(RegistryKey key, bool includeData, CancellationToken cancellationToken)
+		{
+			var values = new List<RegistryValueInfo>();
+			var enumerator = key.GetValues(includeData, cancellationToken).GetAsyncEnumerator();
 			try
 			{
 				while (enumerator.MoveNextAsync().AsTask().GetAwaiter().GetResult())
-					yield return enumerator.Current;
+					values.Add(enumerator.Current);
 			}
 			finally
 			{
@@ -409,6 +433,8 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				{
 				}
 			}
+
+			return values;
 		}
 
 		private static bool TryValueExists(RemoteRegistryClient client, RegistryPathSpec path, CancellationToken cancellationToken)
@@ -459,5 +485,11 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				return false;
 			}
 		}
+	}
+
+	internal sealed class TboRegGetChildItemParams
+	{
+		[Parameter]
+		public SwitchParameter IncludeData { get; set; }
 	}
 }
