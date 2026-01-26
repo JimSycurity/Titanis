@@ -360,7 +360,12 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			{
 				var parsed = RegistryPathParser.Parse(providerPath, nameof(path));
 				using var session = OpenRegistrySession(drive.ServerName, token);
-				using var key = OpenRegistryKey(session.Client, parsed, RegistryAccessRights.SetValue, token);
+				using var key = OpenRegistryKey(
+					session.Client,
+					parsed,
+					RegistryAccessRights.SetValue,
+					RegistryAccessRights.EnumerateSubkeys,
+					token);
 
 				var setParams = this.DynamicParameters as TboRegSetPropertyParams;
 				foreach (var entry in EnumeratePropertyValues(propertyValue))
@@ -398,7 +403,12 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			{
 				var parsed = RegistryPathParser.Parse(providerPath, nameof(path));
 				using var session = OpenRegistrySession(drive.ServerName, token);
-				using var key = OpenRegistryKey(session.Client, parsed, RegistryAccessRights.SetValue, token);
+				using var key = OpenRegistryKey(
+					session.Client,
+					parsed,
+					RegistryAccessRights.SetValue,
+					RegistryAccessRights.EnumerateSubkeys,
+					token);
 				var valueName = DenormalizeValueName(propertyName);
 				key.DeleteValue(valueName, token).GetAwaiter().GetResult();
 			});
@@ -511,9 +521,17 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				var current = driveInfo.CurrentLocation?.TrimStart('\\');
 				if (!string.IsNullOrEmpty(current))
 				{
-					providerPath = string.IsNullOrEmpty(providerPath)
-						? current
-						: CombineProviderPath(current, providerPath);
+					if (string.IsNullOrEmpty(providerPath) || providerPath == ".")
+					{
+						providerPath = current;
+					}
+					else
+					{
+						if (providerPath.StartsWith(".\\", StringComparison.Ordinal))
+							providerPath = providerPath.Substring(2);
+
+						providerPath = CombineProviderPath(current, providerPath);
+					}
 				}
 			}
 
@@ -752,7 +770,12 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			var valueName = RegistryPath.GetSubkeyNameFromPath(path.SubkeyPath);
 			var parentSpec = new RegistryPathSpec(path.RootKey, path.RootName, parentSubkey);
 
-			using var parentKey = OpenRegistryKey(client, parentSpec, RegistryAccessRights.SetValue, cancellationToken);
+			using var parentKey = OpenRegistryKey(
+				client,
+				parentSpec,
+				RegistryAccessRights.SetValue,
+				RegistryAccessRights.EnumerateSubkeys,
+				cancellationToken);
 			valueName = DenormalizeValueName(valueName);
 			parentKey.DeleteValue(valueName, cancellationToken).GetAwaiter().GetResult();
 		}
