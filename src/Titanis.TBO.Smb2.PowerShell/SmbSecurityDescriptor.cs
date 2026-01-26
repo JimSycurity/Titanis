@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Management.Automation;
+using System.Runtime.InteropServices;
 using System.Threading;
 using Titanis;
 using Titanis.Smb2;
@@ -31,6 +32,9 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		public SwitchParameter AsBytes { get; set; }
 
 		[Parameter]
+		public SwitchParameter AsWindows { get; set; }
+
+		[Parameter]
 		public SecurityInfo Sections { get; set; } = SecurityInfo.Owner | SecurityInfo.Group | SecurityInfo.Dacl;
 
 		private CancellationTokenSource? _cancelSource;
@@ -38,9 +42,11 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		protected override void ProcessRecord(SmbProviderInfo smb)
 		{
 			this._cancelSource ??= new CancellationTokenSource();
+			if (this.AsWindows.IsPresent && !RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+				throw new NotSupportedException("AsWindows is only supported on Windows.");
 			if (this.Sections == SecurityInfo.None)
 				throw new ArgumentException("Sections must include at least one SecurityInfo flag.", nameof(Sections));
-			var format = SecurityDescriptorHelpers.ResolveFormat(this.AsSddl, this.AsBytes, asWindows: false);
+			var format = SecurityDescriptorHelpers.ResolveFormat(this.AsSddl, this.AsBytes, this.AsWindows);
 
 			foreach (var path in GetTargetPaths())
 			{
