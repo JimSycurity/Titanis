@@ -96,6 +96,15 @@ Get-TBOSmbStreams -Path tbo:\Temp\local.txt
 Get-TBOSmbStreams -Path \\corp1-web01.corp1.lab.home-labs.lol\C$\Temp\local.txt
 ```
 
+### Get-TBOSmbSessions
+
+Lists active SMB sessions on the server. Some detail levels may require administrative rights; use `-Level Level1` or `-Level Level10` if higher levels return access denied.
+
+```powershell
+Get-TBOSmbSessions -ServerName corp1-web01.corp1.lab.home-labs.lol
+Get-TBOSmbSessions -ServerName corp1-web01.corp1.lab.home-labs.lol -Level Level1
+```
+
 ### Get-TBOSmbOpenFiles
 
 Lists files open on the server via the srvsvc RPC interface. BasePath uses srvsvc conventions (drive roots like `C:\` or `\\` for pipes) and accepts UNC or `tbo:\` paths. Requires administrative rights (or equivalent) on the target server.
