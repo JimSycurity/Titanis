@@ -5,7 +5,9 @@ using System.Management.Automation;
 using System.Text;
 using System.Threading.Tasks;
 using Titanis.Net;
+using Titanis.Security.Kerberos;
 using Titanis.Smb2;
+using HexString = Titanis.Cli.HexString;
 
 namespace Titanis.Tbo.Smb2.PowerShell
 {
@@ -27,6 +29,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				CompressionCapabilities = CompressionCaps.None,
 				CompressionAlgorithms = Smb2ConnectionOptions.DefaultCompressionAlgorithms,
 				KdcPort = 88,
+				TicketCache = Environment.GetEnvironmentVariable(KerberosClient.Krb5CacheVariableName)
 			};
 		}
 
@@ -88,6 +91,11 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				Kdc = this.Kdc ?? baseParams.Kdc,
 				KdcPort = this.KdcPort ?? baseParams.KdcPort,
 				NtlmHash = this.NtlmHash ?? baseParams.NtlmHash,
+				AesKey = this.AesKey ?? baseParams.AesKey,
+				DesKey = this.DesKey ?? baseParams.DesKey,
+				Tgt = this.Tgt ?? baseParams.Tgt,
+				Tickets = this.Tickets ?? baseParams.Tickets,
+				TicketCache = this.TicketCache ?? baseParams.TicketCache,
 				Workstation = this.Workstation ?? this.Workstation
 			};
 			return merged;
@@ -124,6 +132,16 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		public string? Password { get; set; }
 		[Parameter]
 		public NtlmHashInput? NtlmHash { get; set; }
+		[Parameter]
+		public HexString? AesKey { get; set; }
+		[Parameter]
+		public HexString? DesKey { get; set; }
+		[Parameter]
+		public string? Tgt { get; set; }
+		[Parameter]
+		public string[]? Tickets { get; set; }
+		[Parameter]
+		public string? TicketCache { get; set; }
 		[Parameter]
 		public string? Kdc { get; set; }
 		[Parameter]

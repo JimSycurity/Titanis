@@ -536,19 +536,35 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				targetSpn = new ServicePrincipalName(ServiceClassNames.Cifs, targetHost);
 			}
 
-			if (!string.IsNullOrEmpty(parms.Kdc))
+			bool hasKerberosParams =
+				!string.IsNullOrEmpty(parms.Kdc)
+				|| !string.IsNullOrEmpty(parms.Tgt)
+				|| (parms.Tickets?.Length > 0)
+				|| !string.IsNullOrEmpty(parms.TicketCache)
+				|| parms.Password != null
+				|| parms.NtlmHash != null
+				|| parms.AesKey != null
+				|| parms.DesKey != null;
+
+			if (hasKerberosParams)
 			{
-				var port = parms.KdcPort.Value;
-				if (IPAddress.TryParse(serverName, out var _))
-					this.WriteWarning("The server name within the UNC path is an IP address.  This will probably result in Kerberos authentication failing.");
+				IKdcLocator? locator = null;
+				if (!string.IsNullOrEmpty(parms.Kdc))
+				{
+					var port = parms.KdcPort.Value;
+					if (IPAddress.TryParse(serverName, out var _))
+						this.WriteWarning("The server name within the UNC path is an IP address.  This will probably result in Kerberos authentication failing.");
 
-				EndPoint kdcEP;
-				if (IPAddress.TryParse(parms.Kdc, out var kdcAddr))
-					kdcEP = new IPEndPoint(kdcAddr, port);
-				else
-					kdcEP = new DnsEndPoint(parms.Kdc, port);
+					EndPoint kdcEP;
+					if (IPAddress.TryParse(parms.Kdc, out var kdcAddr))
+						kdcEP = new IPEndPoint(kdcAddr, port);
+					else
+						kdcEP = new DnsEndPoint(parms.Kdc, port);
 
-				KerberosClient krb = new KerberosClient(new KdcLocator(kdcEP));
+					locator = new KdcLocator(kdcEP);
+				}
+
+				var krb = new KerberosClient(locator);
 				if (!string.IsNullOrEmpty(parms.Workstation))
 				{
 					if (IPAddress.TryParse(parms.Workstation, out var workstationIp))
@@ -557,32 +573,97 @@ namespace Titanis.Tbo.Smb2.PowerShell
 						krb.Workstation = HostAddress.FromNetbiosName(parms.Workstation);
 				}
 
-				KerberosCredential cred;
-				if (parms.Password != null)
-					cred = new KerberosPasswordCredential(parms.UserName, parms.UserDomain, parms.Password);
-				else if (parms.NtlmHash != null)
-					cred = new KerberosKeyCredential(parms.UserName, parms.UserDomain, EType.Rc4Hmac, parms.NtlmHash.NtHash);
-				else
-					throw new InvalidOperationException("KDC option specified, but no suitable credentials were provided.");
-
-				TicketInfo? ticket = null;
-				try
+				if (!string.IsNullOrEmpty(parms.TicketCache))
 				{
-					var ticketParams = krb.GetDefaultTicketOptions(null);
-					ticket = krb.GetTicketAsync(
-						targetSpn,
-						cred.Realm,
-						cred,
-						ticketParams,
-						CancellationToken.None).GetAwaiter().GetResult();
+					krb.TicketCache = new TicketCacheFile(parms.TicketCache, krb);
 				}
-				catch (Exception ex)
+
+				var authUser = parms.UserName;
+				var authRealm = parms.UserDomain;
+				var effectiveUser = authUser;
+
+				TicketInfo? ticket = krb.TicketCache.GetTicketFromCache(targetSpn, effectiveUser);
+				if (ticket != null)
 				{
-					this.WriteWarning($"Failed to acquire Kerberos ticket for {targetSpn}: {ex.Message}");
+					effectiveUser ??= ticket.UserName;
+					authRealm ??= ticket.UserRealm;
+				}
+
+				if (ticket is null && parms.Tickets != null)
+				{
+					foreach (var ticketFile in parms.Tickets)
+					{
+						if (string.IsNullOrWhiteSpace(ticketFile))
+							continue;
+
+						var fileCache = new TicketCacheFile(ticketFile, krb);
+						foreach (var fileTicket in fileCache.GetAllTickets())
+						{
+							if (ticket is null && CheckMatchingTicket(targetSpn, fileTicket, ref effectiveUser, ref authRealm))
+								ticket = fileTicket;
+
+							krb.ImportTicket(fileTicket);
+						}
+					}
+				}
+
+				if (!string.IsNullOrEmpty(parms.Tgt))
+				{
+					var tgtCache = new TicketCacheFile(parms.Tgt, krb);
+					foreach (var tgtTicket in tgtCache.GetAllTickets())
+					{
+						if (tgtTicket.IsTgt && tgtTicket.IsCurrent)
+						{
+							if ((authUser == null || string.Equals(authUser, tgtTicket.UserName, StringComparison.OrdinalIgnoreCase))
+								&& (authRealm == null || string.Equals(authRealm, tgtTicket.UserRealm, StringComparison.OrdinalIgnoreCase)))
+							{
+								authUser ??= tgtTicket.UserName;
+								authRealm ??= tgtTicket.UserRealm;
+								krb.ImportTicket(tgtTicket);
+							}
+						}
+					}
+				}
+
+				KerberosCredential? cred = null;
+				if (!string.IsNullOrEmpty(authUser) && !string.IsNullOrEmpty(authRealm))
+				{
+					if (parms.Password != null)
+						cred = new KerberosPasswordCredential(authUser, authRealm, parms.Password);
+					else if (parms.NtlmHash != null)
+						cred = new KerberosKeyCredential(authUser, authRealm, EType.Rc4Hmac, parms.NtlmHash.NtHash);
+					else if (parms.AesKey != null)
+						cred = new KerberosKeyCredential(authUser, authRealm, parms.AesKey.Bytes.Length switch
+						{
+							(128 / 8) => EType.Aes128CtsHmacSha1_96,
+							(256 / 8) => EType.Aes256CtsHmacSha1_96,
+							_ => throw new ArgumentException("The AES key is not the correct size for AES 128 or AES 256.")
+						}, parms.AesKey.Bytes);
+					else if (parms.DesKey != null)
+						cred = new KerberosKeyCredential(authUser, authRealm, EType.DesCbcMd5, parms.DesKey.Bytes);
+				}
+
+				if (ticket is null && cred != null && locator != null)
+				{
+					try
+					{
+						var ticketParams = krb.GetDefaultTicketOptions(null);
+						ticket = krb.GetTicketAsync(
+							targetSpn,
+							cred.Realm,
+							cred,
+							ticketParams,
+							CancellationToken.None).GetAwaiter().GetResult();
+					}
+					catch (Exception ex)
+					{
+						this.WriteWarning($"Failed to acquire Kerberos ticket for {targetSpn}: {ex.Message}");
+					}
 				}
 
 				if (ticket != null)
 				{
+					cred ??= new KerberosNullCredential(authUser ?? ticket.UserName, authRealm ?? ticket.ServiceRealm ?? ticket.UserRealm);
 					var krbContext = new KerberosClientContext(cred, krb, targetSpn, ticket);
 					krbContext.RequiredCapabilities = requiredCaps;
 					authContext.Contexts.Add(krbContext);
@@ -648,6 +729,24 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			catch
 			{
 			}
+		}
+
+		private static bool CheckMatchingTicket(ServicePrincipalName targetSpn, TicketInfo ticket, ref string? userName, ref string? userRealm)
+		{
+			if (!ticket.TargetSpn.Equals(targetSpn))
+				return false;
+
+			if (
+				(userName == null || string.Equals(userName, ticket.UserName, StringComparison.OrdinalIgnoreCase))
+				&& (userRealm == null || string.Equals(userRealm, ticket.UserRealm, StringComparison.OrdinalIgnoreCase))
+				)
+			{
+				userName ??= ticket.UserName;
+				userRealm ??= ticket.UserRealm;
+				return true;
+			}
+
+			return false;
 		}
 	}
 
