@@ -55,7 +55,7 @@ Write operations use `New-Item`/`Remove-Item` for keys and `Set-ItemProperty`/`R
 ```powershell
 New-Item -Path tbo-reg:\HKLM\SOFTWARE\TBO
 Set-ItemProperty -Path tbo-reg:\HKLM\SOFTWARE\TBO -Name InstallId -Value "abc123"
-Set-ItemProperty -Path tbo-reg:\HKLM\SOFTWARE\TBO -Name Flags -Value 1
+Set-ItemProperty -Path tbo-reg:\HKLM\SOFTWARE\TBO -Name Flags -Type DwordLE -Value 1
 Remove-ItemProperty -Path tbo-reg:\HKLM\SOFTWARE\TBO -Name Flags
 Remove-Item -Path tbo-reg:\HKLM\SOFTWARE\TBO -Recurse
 ```

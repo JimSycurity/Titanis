@@ -43,7 +43,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 	/// <summary>
 	/// Implements a <see cref="NavigationCmdletProvider"/> for remote registry access.
 	/// </summary>
-	[CmdletProvider(ProviderName, ProviderCapabilities.None)]
+	[CmdletProvider(ProviderName, ProviderCapabilities.ShouldProcess)]
 	public sealed class TboRegProvider : NavigationCmdletProvider, IPropertyCmdletProvider, IDynamicPropertyCmdletProvider
 	{
 		public const string ProviderName = "TBO.Reg";
@@ -362,10 +362,11 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				using var session = OpenRegistrySession(drive.ServerName, token);
 				using var key = OpenRegistryKey(session.Client, parsed, RegistryAccessRights.SetValue, token);
 
+				var setParams = this.DynamicParameters as TboRegSetPropertyParams;
 				foreach (var entry in EnumeratePropertyValues(propertyValue))
 				{
 					var valueName = DenormalizeValueName(entry.Key);
-					var valueType = ResolveValueType(entry.Value, null);
+					var valueType = ResolveValueType(entry.Value, setParams?.Type);
 					var data = EncodeValue(valueType, entry.Value);
 					key.SetValue(valueName, valueType, data, token).GetAwaiter().GetResult();
 				}
@@ -373,7 +374,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		}
 
 		public object SetPropertyDynamicParameters(string path, PSObject propertyValue)
-			=> null;
+			=> new TboRegSetPropertyParams();
 
 		public void ClearProperty(string path, Collection<string> propertyToClear)
 			=> throw new NotSupportedException("Clearing registry values is not supported. Use Remove-ItemProperty instead.");
@@ -483,11 +484,13 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 			var providerPath = path ?? string.Empty;
 			var providerQualifierIndex = providerPath.IndexOf("::", StringComparison.Ordinal);
-			if (providerQualifierIndex >= 0)
+			bool hasQualifier = providerQualifierIndex >= 0;
+			if (hasQualifier)
 				providerPath = providerPath.Substring(providerQualifierIndex + 2);
 
 			var drivePrefix = driveInfo.Name + ":";
-			if (providerPath.StartsWith(drivePrefix, StringComparison.OrdinalIgnoreCase))
+			bool hasDrivePrefix = providerPath.StartsWith(drivePrefix, StringComparison.OrdinalIgnoreCase);
+			if (hasDrivePrefix)
 				providerPath = providerPath.Substring(drivePrefix.Length);
 
 			providerPath = providerPath.TrimStart('\\');
@@ -503,7 +506,28 @@ namespace Titanis.Tbo.Smb2.PowerShell
 					providerPath = providerPath.Substring(prefix.Length);
 			}
 
+			if (!hasQualifier && !hasDrivePrefix && !IsRootedRegistryPath(providerPath))
+			{
+				var current = driveInfo.CurrentLocation?.TrimStart('\\');
+				if (!string.IsNullOrEmpty(current))
+				{
+					providerPath = string.IsNullOrEmpty(providerPath)
+						? current
+						: CombineProviderPath(current, providerPath);
+				}
+			}
+
 			return providerPath;
+		}
+
+		private static bool IsRootedRegistryPath(string providerPath)
+		{
+			if (string.IsNullOrWhiteSpace(providerPath))
+				return false;
+
+			var normalized = providerPath.TrimStart('\\');
+			string rootPart = normalized.Split('\\', 2)[0].TrimEnd(':');
+			return RemoteRegistryClient.TryResolveRootKey(rootPart) != RegistryRootKey.Invalid;
 		}
 
 		private SmbProviderInfo GetSmbProviderInfo()
@@ -821,8 +845,11 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			return Encoding.Unicode.GetBytes(sb.ToString());
 		}
 
-		private static IReadOnlyList<string> ResolveStringList(object value)
+		private static IReadOnlyList<string> ResolveStringList(object? value)
 		{
+			if (value == null)
+				throw new ArgumentException("MultiString registry values must be provided as a string array.");
+
 			if (value is string[] array)
 				return array;
 			if (value is IEnumerable<string> enumerable)
@@ -854,5 +881,11 @@ namespace Titanis.Tbo.Smb2.PowerShell
 	{
 		[Parameter]
 		public SwitchParameter IncludeData { get; set; }
+	}
+
+	internal sealed class TboRegSetPropertyParams
+	{
+		[Parameter]
+		public RegistryValueType? Type { get; set; }
 	}
 }
