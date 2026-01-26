@@ -244,6 +244,22 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			});
 		}
 
+		protected override bool HasChildItems(string path)
+		{
+			var providerPath = ResolveProviderPath(path, out var drive);
+			if (IsRootPath(providerPath))
+				return RootKeys.Length > 0;
+
+			return this.BeginOperation(token =>
+			{
+				var parsed = RegistryPathParser.Parse(providerPath, nameof(path));
+				using var session = OpenRegistrySession(drive.ServerName, token);
+				using var key = OpenRegistryKey(session.Client, parsed, RegistryAccessRights.QueryValue | RegistryAccessRights.EnumerateSubkeys, token);
+				var info = key.QueryInfo(token).GetAwaiter().GetResult();
+				return info.SubkeyCount > 0 || info.ValueCount > 0;
+			});
+		}
+
 		protected override void NewItem(string path, string itemTypeName, object newItemValue)
 		{
 			if (!string.IsNullOrWhiteSpace(itemTypeName)
