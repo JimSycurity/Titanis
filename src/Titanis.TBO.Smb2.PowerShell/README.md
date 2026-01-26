@@ -101,6 +101,7 @@ Sets connection defaults used by the TBO.Reg provider and remote registry cmdlet
 
 ```powershell
 Set-TBORegConnectOptions -ServerName corp1-web01.corp1.lab.home-labs.lol -HostName corp1-web01.corp1.lab.home-labs.lol -UserName psx_l_backupop -UserDomain corp1.lab.home-labs.lol -Password 'YourSecurePassword'
+Set-TBORegConnectOptions -ServerName corp1-web01.corp1.lab.home-labs.lol -UserName psx_l_backupop -UserDomain corp1.lab.home-labs.lol -NtlmHash "aad3b435b51404eeaad3b435b51404ee:0123456789abcdef0123456789abcdef"
 ```
 
 ### Copy-TBOSmbItem

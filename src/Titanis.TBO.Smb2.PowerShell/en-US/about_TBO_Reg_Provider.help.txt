@@ -38,6 +38,7 @@ DYNAMIC PARAMETERS
       - Kdc, KdcPort
 
     These parameters set or override defaults for the target server.
+    NtlmHash accepts NT (32 hex), LM:NT, or combined 64-hex strings.
 
 EXAMPLES
     Example 1: Create a registry drive and list hives
@@ -46,6 +47,11 @@ EXAMPLES
             -Password 'YourSecurePassword'
         New-PSDrive -Name tbo-reg -PSProvider 'TBO.Reg' -Root corp1-web01.corp1.lab.home-labs.lol
         Get-ChildItem tbo-reg:\
+
+    Example 1b: Use an NTLM hash
+        Set-TBORegConnectOptions -ServerName corp1-web01.corp1.lab.home-labs.lol `
+            -UserName psx_l_backupop -UserDomain corp1.lab.home-labs.lol `
+            -NtlmHash "aad3b435b51404eeaad3b435b51404ee:0123456789abcdef0123456789abcdef"
 
     Example 2: Enumerate keys and values
         Set-Location tbo-reg:\HKLM\SOFTWARE
