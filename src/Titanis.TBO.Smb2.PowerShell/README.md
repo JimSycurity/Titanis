@@ -171,6 +171,7 @@ Set-ItemProperty -Path tbo:\Temp\example.txt -Name Attributes -Value 'Hidden, Re
 ### Get-TBOSmbSecurityDescriptor
 
 Reads a security descriptor from a file or directory and returns a portable `Titanis.Winterop.Security.SecurityDescriptor` by default. Use `-AsSddl` or `-AsBytes` to change output format.
+When using UNC paths, the server name must match the name used in `Set-TBOSmbConnectOptions` (for example, FQDN vs short name). A mismatch can yield "context does not match any mechanisms supported by the server."
 
 ```powershell
 $sd = Get-TBOSmbSecurityDescriptor -Path tbo:\Windows

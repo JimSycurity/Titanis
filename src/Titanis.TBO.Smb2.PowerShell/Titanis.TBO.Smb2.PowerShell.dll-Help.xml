@@ -896,6 +896,7 @@
       <command:noun>TBOSmbSecurityDescriptor</command:noun>
       <maml:description>
         <maml:para>Reads a security descriptor from a remote file or directory.</maml:para>
+        <maml:para>When using UNC paths, the server name must match the name used in Set-TBOSmbConnectOptions (for example, FQDN vs short name). A mismatch can yield "context does not match any mechanisms supported by the server."</maml:para>
       </maml:description>
     </command:details>
     <command:syntax>
