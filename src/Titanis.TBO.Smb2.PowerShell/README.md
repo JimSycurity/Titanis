@@ -114,6 +114,15 @@ Get-TBOSmbNics -Path \\corp1-web01.corp1.lab.home-labs.lol
 Get-TBOSmbNics -Path tbo:\
 ```
 
+### Watch-TBOSmb
+
+Watches a remote directory for changes. Accepts UNC or `tbo:\` paths. Snapshot paths are not supported.
+
+```powershell
+Watch-TBOSmb -Path tbo:\Temp
+Watch-TBOSmb -Path \\corp1-web01\C$\Temp -Recursive -ContinueOnErrors -BufferSize 4096
+```
+
 ### Snapshot Navigation (TimeWarp)
 
 Use the @GMT token from Get-TBOSmbSnapshots to navigate a snapshot. Snapshot paths are read-only.
