@@ -197,17 +197,25 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				case byte[] bytes:
 					return SecurityDescriptorHelpers.FromBytes(bytes);
 				case string sddl:
+					if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+						throw new NotSupportedException("SDDL input is only supported on Windows. Provide a byte[] or Titanis SecurityDescriptor instead.");
 					return SecurityDescriptorHelpers.FromSddl(sddl);
 				case RawSecurityDescriptor rawDescriptor:
+					if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+						throw new NotSupportedException("Windows security descriptor types are only supported on Windows. Provide a byte[] or Titanis SecurityDescriptor instead.");
 					return SecurityDescriptorHelpers.FromWindowsSecurityDescriptor(rawDescriptor);
 				case CommonSecurityDescriptor commonDescriptor:
+					if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+						throw new NotSupportedException("Windows security descriptor types are only supported on Windows. Provide a byte[] or Titanis SecurityDescriptor instead.");
 					return SecurityDescriptorHelpers.FromWindowsSecurityDescriptor(commonDescriptor);
 				case GenericSecurityDescriptor genericDescriptor:
+					if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+						throw new NotSupportedException("Windows security descriptor types are only supported on Windows. Provide a byte[] or Titanis SecurityDescriptor instead.");
 					var buffer = new byte[genericDescriptor.BinaryLength];
 					genericDescriptor.GetBinaryForm(buffer, 0);
 					return SecurityDescriptorHelpers.FromBytes(buffer);
 				default:
-					throw new ArgumentException("SecurityDescriptor must be a Titanis SecurityDescriptor, SDDL string, raw byte array, or Windows security descriptor.", nameof(input));
+					throw new ArgumentException("SecurityDescriptor must be a Titanis SecurityDescriptor, SDDL string (Windows only), raw byte array, or Windows security descriptor.", nameof(input));
 			}
 		}
 

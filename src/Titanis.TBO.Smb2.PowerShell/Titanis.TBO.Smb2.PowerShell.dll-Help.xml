@@ -1101,7 +1101,7 @@ $sd2 = [Titanis.Tbo.Smb2.PowerShell.TBOSD]::FromRegistryBase64($base64)</maml:co
       <command:parameter required="true" position="1">
         <maml:name>SecurityDescriptor</maml:name>
         <maml:description>
-          <maml:para>Security descriptor to write. Accepts portable SecurityDescriptor instances, SDDL strings, raw byte arrays, or Windows security descriptor objects.</maml:para>
+          <maml:para>Security descriptor to write. Accepts portable SecurityDescriptor instances, SDDL strings, raw byte arrays, or Windows security descriptor objects. SDDL and Windows descriptor inputs are Windows-only.</maml:para>
         </maml:description>
         <command:parameterValue>Object</command:parameterValue>
       </command:parameter>

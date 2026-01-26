@@ -185,7 +185,7 @@ $daclOnly = Get-TBOSmbSecurityDescriptor -Path tbo:\Windows -Sections Dacl
 
 Writes a security descriptor to a file or directory from a portable `SecurityDescriptor`.
 Use `-Sections` to limit which parts of the descriptor are applied (default: Owner, Group, DACL).
-The input can be a portable `SecurityDescriptor`, an SDDL string, raw bytes, or Windows security descriptor objects.
+The input can be a portable `SecurityDescriptor`, an SDDL string, raw bytes, or Windows security descriptor objects. SDDL and Windows descriptor inputs are Windows-only; on Linux use portable or raw bytes.
 
 ```powershell
 $sd = Get-TBOSmbSecurityDescriptor -Path tbo:\Windows
