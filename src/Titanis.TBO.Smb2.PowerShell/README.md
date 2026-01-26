@@ -76,6 +76,14 @@ Sets connection defaults used by TBO cmdlets and the TBO.Smb2 provider. Supports
 Set-TBOSmbConnectOptions -ServerName corp1-web01.corp1.lab.home-labs.lol -HostName corp1-web01.corp1.lab.home-labs.lol -UserName psx_l_backupop -UserDomain corp1.lab.home-labs.lol -Password 'YourSecurePassword'
 ```
 
+### Set-TBORegConnectOptions
+
+Sets connection defaults used by the TBO.Reg provider and remote registry cmdlets. Accepts the same dynamic parameters as `Set-TBOSmbConnectOptions`.
+
+```powershell
+Set-TBORegConnectOptions -ServerName corp1-web01.corp1.lab.home-labs.lol -HostName corp1-web01.corp1.lab.home-labs.lol -UserName psx_l_backupop -UserDomain corp1.lab.home-labs.lol -Password 'YourSecurePassword'
+```
+
 ### Copy-TBOSmbItem
 
 Copies files between local paths and SMB paths using backup intent. Supports UNC or `tbo:\` paths. Use `-Force` (alias `-Overwrite`) to overwrite existing destinations.
