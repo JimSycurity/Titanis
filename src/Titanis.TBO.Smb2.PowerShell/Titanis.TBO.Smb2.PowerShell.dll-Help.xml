@@ -485,6 +485,20 @@
         <command:parameterValue>String[]</command:parameterValue>
       </command:parameter>
       <command:parameter>
+        <maml:name>Sections</maml:name>
+        <maml:description>
+          <maml:para>Security descriptor sections to retrieve (default: Owner, Group, DACL).</maml:para>
+        </maml:description>
+        <command:parameterValue>SecurityInfo</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>AsWindows</maml:name>
+        <maml:description>
+          <maml:para>Return a System.Security.AccessControl security descriptor (Windows only).</maml:para>
+        </maml:description>
+        <command:parameterValue>Switch</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
         <maml:name>LiteralPath</maml:name>
         <maml:description>
           <maml:para>Literal target path. Use when the path contains wildcard characters.</maml:para>
@@ -1061,7 +1075,7 @@ $sd2 = [Titanis.Tbo.Smb2.PowerShell.TBOSD]::FromRegistryBase64($base64)</maml:co
         </command:parameter>
         <command:parameter required="true" position="1">
           <maml:name>SecurityDescriptor</maml:name>
-          <command:parameterValue>SecurityDescriptor</command:parameterValue>
+          <command:parameterValue>Object</command:parameterValue>
         </command:parameter>
         <command:parameter required="false">
           <maml:name>Sections</maml:name>
@@ -1087,9 +1101,9 @@ $sd2 = [Titanis.Tbo.Smb2.PowerShell.TBOSD]::FromRegistryBase64($base64)</maml:co
       <command:parameter required="true" position="1">
         <maml:name>SecurityDescriptor</maml:name>
         <maml:description>
-          <maml:para>Security descriptor to write.</maml:para>
+          <maml:para>Security descriptor to write. Accepts portable SecurityDescriptor instances, SDDL strings, raw byte arrays, or Windows security descriptor objects.</maml:para>
         </maml:description>
-        <command:parameterValue>SecurityDescriptor</command:parameterValue>
+        <command:parameterValue>Object</command:parameterValue>
       </command:parameter>
       <command:parameter>
         <maml:name>Sections</maml:name>
@@ -1106,6 +1120,14 @@ $sd2 = [Titanis.Tbo.Smb2.PowerShell.TBOSD]::FromRegistryBase64($base64)</maml:co
 Set-TBOSmbSecurityDescriptor -Path tbo:\Windows -SecurityDescriptor $sd</maml:code>
         <maml:remarks>
           <maml:para>Reads and then writes a security descriptor.</maml:para>
+        </maml:remarks>
+      </command:example>
+      <command:example>
+        <command:title>-------------------------- EXAMPLE 2 --------------------------</command:title>
+        <maml:code>$sddl = "O:BAG:BAD:(A;;FA;;;SY)"
+Set-TBOSmbSecurityDescriptor -Path tbo:\Windows -SecurityDescriptor $sddl -Sections Dacl</maml:code>
+        <maml:remarks>
+          <maml:para>Applies a DACL from an SDDL string.</maml:para>
         </maml:remarks>
       </command:example>
     </command:examples>

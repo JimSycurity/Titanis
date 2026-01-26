@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Management.Automation;
+using System.Security.AccessControl;
 using System.Runtime.InteropServices;
 using System.Threading;
 using Titanis;
@@ -151,7 +152,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		public string[] LiteralPath { get; set; } = Array.Empty<string>();
 
 		[Parameter(Mandatory = true, Position = 1)]
-		public SecurityDescriptor SecurityDescriptor { get; set; } = null!;
+		public object SecurityDescriptor { get; set; } = null!;
 
 		[Parameter]
 		public SecurityInfo Sections { get; set; } = SecurityInfo.Owner | SecurityInfo.Group | SecurityInfo.Dacl;
@@ -165,8 +166,9 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			foreach (var path in GetTargetPaths())
 			{
 				var uncPath = ResolveToUncPath(path, this.ParameterSetName);
-				var securityInfo = ResolveSecurityInfo(this.SecurityDescriptor, this.Sections);
-				WriteSecurityDescriptor(smb, uncPath, securityInfo, this._cancelSource.Token);
+				var resolvedDescriptor = ResolveSecurityDescriptor(this.SecurityDescriptor);
+				var securityInfo = ResolveSecurityInfo(resolvedDescriptor, this.Sections);
+				WriteSecurityDescriptor(smb, uncPath, resolvedDescriptor, securityInfo, this._cancelSource.Token);
 			}
 		}
 
@@ -181,6 +183,32 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			return this.ParameterSetName == LiteralPathParameterSet
 				? this.LiteralPath
 				: this.Path;
+		}
+
+		private static SecurityDescriptor ResolveSecurityDescriptor(object input)
+		{
+			if (input is PSObject psObject)
+				input = psObject.BaseObject;
+
+			switch (input)
+			{
+				case SecurityDescriptor descriptor:
+					return descriptor;
+				case byte[] bytes:
+					return SecurityDescriptorHelpers.FromBytes(bytes);
+				case string sddl:
+					return SecurityDescriptorHelpers.FromSddl(sddl);
+				case RawSecurityDescriptor rawDescriptor:
+					return SecurityDescriptorHelpers.FromWindowsSecurityDescriptor(rawDescriptor);
+				case CommonSecurityDescriptor commonDescriptor:
+					return SecurityDescriptorHelpers.FromWindowsSecurityDescriptor(commonDescriptor);
+				case GenericSecurityDescriptor genericDescriptor:
+					var buffer = new byte[genericDescriptor.BinaryLength];
+					genericDescriptor.GetBinaryForm(buffer, 0);
+					return SecurityDescriptorHelpers.FromBytes(buffer);
+				default:
+					throw new ArgumentException("SecurityDescriptor must be a Titanis SecurityDescriptor, SDDL string, raw byte array, or Windows security descriptor.", nameof(input));
+			}
 		}
 
 		private static SecurityInfo ResolveSecurityInfo(SecurityDescriptor securityDescriptor, SecurityInfo requestedSections)
@@ -205,6 +233,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		private void WriteSecurityDescriptor(
 			SmbProviderInfo smb,
 			UncPath uncPath,
+			SecurityDescriptor securityDescriptor,
 			SecurityInfo securityInfo,
 			CancellationToken cancellationToken)
 		{
@@ -222,7 +251,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				};
 
 				file = smb.SmbClient.CreateFileAsync(uncPath, createInfo, FileAccess.ReadWrite, cancellationToken).GetAwaiter().GetResult();
-				file.SetSecurityAsync(this.SecurityDescriptor, securityInfo, cancellationToken).GetAwaiter().GetResult();
+				file.SetSecurityAsync(securityDescriptor, securityInfo, cancellationToken).GetAwaiter().GetResult();
 			}
 			finally
 			{
