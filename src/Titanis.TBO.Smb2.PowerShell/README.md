@@ -42,7 +42,7 @@ Use `Get-Help about_TBO_Smb2_Provider` for supported item types, dynamic paramet
 
 ## Provider (TBO.Reg) (Preview)
 
-The `TBO.Reg` provider exposes the remote registry through a per-server PSDrive. The drive root is the server name, and the top-level items are hives (HKLM, HKCU, HKU, etc). Registry key enumeration will be added next.
+The `TBO.Reg` provider exposes the remote registry through a per-server PSDrive. The drive root is the server name, and the top-level items are hives (HKLM, HKCU, HKU, etc). Keys enumerate subkeys and values; the default value is shown as `(Default)`.
 
 ```powershell
 New-PSDrive -Name tbo-reg -PSProvider 'TBO.Reg' -Root corp1-web01.corp1.lab.home-labs.lol
