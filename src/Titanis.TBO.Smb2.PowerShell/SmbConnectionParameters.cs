@@ -123,7 +123,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		[Parameter]
 		public string? Password { get; set; }
 		[Parameter]
-		public Cli.HexString? NtlmHash { get; set; }
+		public NtlmHashInput? NtlmHash { get; set; }
 		[Parameter]
 		public string? Kdc { get; set; }
 		[Parameter]

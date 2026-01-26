@@ -561,7 +561,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				if (parms.Password != null)
 					cred = new KerberosPasswordCredential(parms.UserName, parms.UserDomain, parms.Password);
 				else if (parms.NtlmHash != null)
-					cred = new KerberosKeyCredential(parms.UserName, parms.UserDomain, EType.Rc4Hmac, parms.NtlmHash.Bytes);
+					cred = new KerberosKeyCredential(parms.UserName, parms.UserDomain, EType.Rc4Hmac, parms.NtlmHash.NtHash);
 				else
 					throw new InvalidOperationException("KDC option specified, but no suitable credentials were provided.");
 
@@ -597,7 +597,12 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			}
 			else if (parms.NtlmHash != null)
 			{
-				ntlmCred = new NtlmHashCredential(parms.UserName, parms.UserDomain, new Buffer128(), new Buffer128(parms.NtlmHash.Bytes));
+				var lmHash = parms.NtlmHash.LmHash ?? new byte[16];
+				ntlmCred = new NtlmHashCredential(
+					parms.UserName,
+					parms.UserDomain,
+					new Buffer128(lmHash),
+					new Buffer128(parms.NtlmHash.NtHash));
 			}
 			else
 				ntlmCred = null;
