@@ -35,10 +35,13 @@ DYNAMIC PARAMETERS
       - ClientGuid, PreauthSaltLength, Ciphers, SigningAlgorithms
       - CompressionCapabilities, CompressionAlgorithms
       - UserName, UserDomain, Password, NtlmHash, Workstation
+      - AesKey, DesKey
+      - Tgt, Tickets, TicketCache
       - Kdc, KdcPort
 
     These parameters set or override defaults for the target server.
     NtlmHash accepts NT (32 hex), LM:NT, or combined 64-hex strings.
+    TicketCache honors KRB5CCNAME by default.
 
 EXAMPLES
     Example 1: Create a registry drive and list hives
@@ -52,6 +55,10 @@ EXAMPLES
         Set-TBORegConnectOptions -ServerName corp1-web01.corp1.lab.home-labs.lol `
             -UserName psx_l_backupop -UserDomain corp1.lab.home-labs.lol `
             -NtlmHash "aad3b435b51404eeaad3b435b51404ee:0123456789abcdef0123456789abcdef"
+
+    Example 1c: Use a ticket cache
+        Set-TBORegConnectOptions -ServerName corp1-web01.corp1.lab.home-labs.lol `
+            -TicketCache C:\temp\krb5cc
 
     Example 2: Enumerate keys and values
         Set-Location tbo-reg:\HKLM\SOFTWARE

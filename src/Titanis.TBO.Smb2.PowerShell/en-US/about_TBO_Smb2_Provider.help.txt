@@ -28,9 +28,13 @@ DYNAMIC PARAMETERS
       - ClientGuid, PreauthSaltLength, Ciphers, SigningAlgorithms
       - CompressionCapabilities, CompressionAlgorithms
       - UserName, UserDomain, Password, NtlmHash, Workstation
+      - AesKey, DesKey
+      - Tgt, Tickets, TicketCache
       - Kdc, KdcPort
 
     These parameters set or override defaults for the target server.
+    NtlmHash accepts NT (32 hex), LM:NT, or combined 64-hex strings.
+    TicketCache honors KRB5CCNAME by default.
 
 EXAMPLES
     Example 1: Create a drive with credentials
@@ -43,6 +47,12 @@ EXAMPLES
             -UserName psx_l_backupop -UserDomain corp1.lab.home-labs.lol `
             -Password 'YourSecurePassword'
         New-PSDrive -Name tbo -PSProvider 'TBO.Smb2' -Root '\\corp1-web01\C$'
+
+    Example 2b: Set defaults using alternate auth
+        Set-TBOSmbConnectOptions -ServerName corp1-web01 `
+            -UserName psx_l_backupop -UserDomain corp1.lab.home-labs.lol `
+            -NtlmHash "aad3b435b51404eeaad3b435b51404ee:0123456789abcdef0123456789abcdef"
+        Set-TBOSmbConnectOptions -ServerName corp1-web01 -TicketCache C:\temp\krb5cc
 
     Example 3: Navigate and read content
         Set-Location tbo:\
