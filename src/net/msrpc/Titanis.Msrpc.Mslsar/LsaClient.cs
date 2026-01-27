@@ -318,10 +318,14 @@ namespace Titanis.Msrpc.Mslsar
 			return ppCurrentValue.value?.value.Buffer?.value.ToArray();
 		}
 
-		internal async Task<LsaAccount> CreateAccount(RpcContextHandle handle, SecurityIdentifier sid, CancellationToken cancellationToken)
+		// TBO needs a configurable access mask when creating LSA accounts.
+		internal Task<LsaAccount> CreateAccount(RpcContextHandle handle, SecurityIdentifier sid, CancellationToken cancellationToken)
+			=> this.CreateAccount(handle, sid, LsaAccountAccess.View, cancellationToken);
+
+		internal async Task<LsaAccount> CreateAccount(RpcContextHandle handle, SecurityIdentifier sid, LsaAccountAccess access, CancellationToken cancellationToken)
 		{
 			RpcPointer<RpcContextHandle> pUserAccount = new();
-			var res = (Ntstatus)await _proxy.LsarCreateAccount(handle, sid.ToRpcSid(), (uint)LsaAccountAccess.View, pUserAccount, cancellationToken).ConfigureAwait(false);
+			var res = (Ntstatus)await _proxy.LsarCreateAccount(handle, sid.ToRpcSid(), (uint)access, pUserAccount, cancellationToken).ConfigureAwait(false);
 			res.CheckAndThrow();
 
 			return new LsaAccount(this, pUserAccount.value);

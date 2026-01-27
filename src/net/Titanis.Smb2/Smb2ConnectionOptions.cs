@@ -62,6 +62,14 @@ namespace Titanis.Smb2
 		/// </summary>
 		public bool RequiresSecureNegotiate { get; set; }
 		/// <summary>
+		/// Gets or sets a value indicating whether the client may treat zero-credit responses as one credit.
+		/// </summary>
+		/// <remarks>
+		/// This is intended for specific SMB2 named pipe workflows that intermittently return
+		/// zero credits during RPC enumeration (e.g., TBO winreg enumeration).
+		/// </remarks>
+		public bool AllowZeroCreditFallback { get; set; }
+		/// <summary>
 		/// Gets or sets the client ID.
 		/// </summary>
 		public Guid ClientGuid { get; set; } = Guid.NewGuid();

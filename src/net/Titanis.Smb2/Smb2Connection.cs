@@ -879,7 +879,11 @@ namespace Titanis.Smb2
 				}
 			}
 
-			this._credits += hdr.creditReqResp;
+			var creditsGranted = hdr.creditReqResp;
+			// Allow opt-in fallback for zero-credit responses (named pipe RPC workflows like TBO winreg).
+			if (this.Options.AllowZeroCreditFallback && creditsGranted == 0 && this._credits == 0)
+				creditsGranted = 1;
+			this._credits += creditsGranted;
 
 			return new Smb2Message(
 				pdu,

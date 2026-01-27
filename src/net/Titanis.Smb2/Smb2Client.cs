@@ -54,6 +54,8 @@ namespace Titanis.Smb2
 		public Smb2ConnectionOptions DefaultConnectionOptions { get; set; } = new Smb2ConnectionOptions();
 		public Smb2SessionOptions DefaultSessionOptions { get; set; } = new Smb2SessionOptions(false);
 		public Smb2ShareOptions DefaultShareOptions { get; set; } = new Smb2ShareOptions(false);
+		// Used by TBO to enforce backup-intent opens on all share operations.
+		public Smb2FileCreateOptions RequiredCreateOptions { get; set; }
 
 		/// <summary>
 		/// Provides RNG services throughout the implementation.
@@ -249,41 +251,70 @@ namespace Titanis.Smb2
 			var connGroup = await this.GetConnectionAsync(serverName, port, cancellationToken).ConfigureAwait(false);
 			var conn0 = connGroup.SelectConnection();
 
-			var authContext = this.credentialService.GetAuthContextForService(new ServicePrincipalName(ServiceClass, serverName), SecurityCapabilities.Integrity);
-
-			const int SpnegoRpcType = 9;
-			if (authContext == null)
-				throw new InvalidOperationException($"No credential is available for server `{serverName}`.");
-			else if (authContext.RpcAuthType != SpnegoRpcType)
+			AuthClientContext CreateAuthContext()
 			{
-				SpnegoClientContext spnego = new SpnegoClientContext()
+				var authContext = this.credentialService.GetAuthContextForService(new ServicePrincipalName(ServiceClass, serverName), SecurityCapabilities.Integrity);
+
+				const int SpnegoRpcType = 9;
+				if (authContext == null)
+					throw new InvalidOperationException($"No credential is available for server `{serverName}`.");
+				if (authContext.RpcAuthType != SpnegoRpcType)
 				{
-					ChannelBinding = authContext.ChannelBinding,
-					TargetSpn = authContext.TargetSpn,
-					IsTargetSpnUntrusted = authContext.IsTargetSpnUntrusted,
-				};
-				spnego.Contexts.Add(authContext);
-				authContext = spnego;
-			}
-
-			var session = await conn0.AuthenticateAsync(authContext, options.MustEncryptData, null, 0, cancellationToken).ConfigureAwait(false);
-			this.traceCallback?.OnSessionAuthenticated(session);
-
-			this._sessions.Add(new SessionKey(new ConnectionKey(serverName, port)), session);
-
-			if (this.UseMultiChannel && conn0.Dialect >= Smb2Dialect.Smb3_1_1)
-			{
-				for (int i = 1; i < connGroup.connections.Count; i++)
-				{
-					var conn = connGroup.SelectConnection();
-					await session.EstablishNewChannel(conn, cancellationToken).ConfigureAwait(false);
+					SpnegoClientContext spnego = new SpnegoClientContext()
+					{
+						ChannelBinding = authContext.ChannelBinding,
+						TargetSpn = authContext.TargetSpn,
+						IsTargetSpnUntrusted = authContext.IsTargetSpnUntrusted,
+					};
+					spnego.Contexts.Add(authContext);
+					authContext = spnego;
 				}
+
+				return authContext;
 			}
 
-			//var conn2 = await this.ConnectToAsync(serverName, port, false, cancellationToken).ConfigureAwait(false);
-			//await conn2.AuthenticateAsync(this.credentialService.GetAuthContextForServer(ResourceTypes.Server, serverName), false, session, cancellationToken).ConfigureAwait(false);
+			// TBO may request re-auth to re-negotiate a token with required privileges.
+			const int MaxAuthAttempts = 2;
+			for (int attempt = 0; attempt < MaxAuthAttempts; attempt++)
+			{
+				var authContext = CreateAuthContext();
+				var session = await conn0.AuthenticateAsync(authContext, options.MustEncryptData, null, 0, cancellationToken).ConfigureAwait(false);
+				session.RequiredCreateOptions = this.RequiredCreateOptions;
 
-			return session;
+				try
+				{
+					this.traceCallback?.OnSessionAuthenticated(session);
+				}
+				catch
+				{
+					await session.LogOffAsync(cancellationToken).ConfigureAwait(false);
+					throw;
+				}
+
+				if (session.RequiresReauth)
+				{
+					await session.LogOffAsync(cancellationToken).ConfigureAwait(false);
+					continue;
+				}
+
+				this._sessions.Add(new SessionKey(new ConnectionKey(serverName, port)), session);
+
+				if (this.UseMultiChannel && conn0.Dialect >= Smb2Dialect.Smb3_1_1)
+				{
+					for (int i = 1; i < connGroup.connections.Count; i++)
+					{
+						var conn = connGroup.SelectConnection();
+						await session.EstablishNewChannel(conn, cancellationToken).ConfigureAwait(false);
+					}
+				}
+
+				//var conn2 = await this.ConnectToAsync(serverName, port, false, cancellationToken).ConfigureAwait(false);
+				//await conn2.AuthenticateAsync(this.credentialService.GetAuthContextForServer(ResourceTypes.Server, serverName), false, session, cancellationToken).ConfigureAwait(false);
+
+				return session;
+			}
+
+			throw new InvalidOperationException($"Unable to establish session for `{serverName}` with required privileges.");
 		}
 		#endregion
 		#region Shares
@@ -334,6 +365,63 @@ namespace Titanis.Smb2
 			this.traceCallback?.OnShareConnected(uncPath, share);
 			this._shares.Add(new ShareKey(new SessionKey(new ConnectionKey(uncPath.ServerName, uncPath.Port)), uncPath.ShareName), share);
 			return share;
+		}
+		#endregion
+
+		#region Disconnect
+		public async Task DisconnectServerAsync(string serverName, int? port = null)
+		{
+			if (string.IsNullOrWhiteSpace(serverName))
+				throw new ArgumentException("Server name must be provided.", nameof(serverName));
+
+			bool Matches(ConnectionKey key)
+			{
+				if (!key.ServerName.Equals(serverName, StringComparison.OrdinalIgnoreCase))
+					return false;
+				return !port.HasValue || key.Port == port.Value;
+			}
+
+			var shareKeys = this._shares.Keys.Where(key => Matches(key.SessionKey.ConnectionKey)).ToList();
+			foreach (var key in shareKeys)
+			{
+				if (this._shares.Remove(key, out var share))
+					await share.DisposeAsync().ConfigureAwait(false);
+			}
+
+			var sessionKeys = this._sessions.Keys.Where(key => Matches(key.ConnectionKey)).ToList();
+			foreach (var key in sessionKeys)
+			{
+				if (this._sessions.Remove(key, out var session))
+					await session.DisposeAsync().ConfigureAwait(false);
+			}
+
+			var connectionKeys = this._connections.Keys.Where(Matches).ToList();
+			foreach (var key in connectionKeys)
+			{
+				if (!this._connections.Remove(key, out var connGroup))
+					continue;
+
+				foreach (var conn in connGroup.connections)
+					await conn.DisposeAsync().ConfigureAwait(false);
+			}
+		}
+
+		public async Task DisconnectAllAsync()
+		{
+			foreach (var share in this._shares.Values)
+				await share.DisposeAsync().ConfigureAwait(false);
+			this._shares.Clear();
+
+			foreach (var session in this._sessions.Values)
+				await session.DisposeAsync().ConfigureAwait(false);
+			this._sessions.Clear();
+
+			foreach (var connGroup in this._connections.Values)
+			{
+				foreach (var conn in connGroup.connections)
+					await conn.DisposeAsync().ConfigureAwait(false);
+			}
+			this._connections.Clear();
 		}
 		#endregion
 

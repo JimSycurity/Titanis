@@ -2,6 +2,7 @@
 using ms_rrp;
 using Titanis.DceRpc;
 using Titanis.DceRpc.Client;
+using Titanis.Security;
 using Titanis.Winterop;
 using Titanis.Winterop.Registry;
 using Titanis.Winterop.Security;
@@ -28,6 +29,9 @@ namespace Titanis.Msrpc.Msrrp
 
 		// [MS-RRP] § 1.9
 		public override string? WellKnownPipeName => "winreg";
+		// Observed: HOSTU is required for TBO winreg bindings with backup-privileged auth.
+		/// <inheritdoc/>
+		public sealed override string? ServiceClass => ServiceClassNames.HostU;
 
 		internal winregClientProxy proxy => this._proxy;
 

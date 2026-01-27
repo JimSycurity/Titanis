@@ -15,7 +15,7 @@ namespace Titanis.Winterop.Registry
 
 	public class RegistryKeyInfo
 	{
-		public string ClassName { get; set; }
+		public string? ClassName { get; set; }
 		public int SubkeyCount { get; set; }
 		public int MaxSubkeyLength { get; set; }
 		public int MaxClassLength { get; set; }

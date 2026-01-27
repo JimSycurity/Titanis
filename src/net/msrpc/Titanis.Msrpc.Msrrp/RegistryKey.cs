@@ -1,4 +1,5 @@
-﻿using System.Buffers.Binary;
+using System.Buffers.Binary;
+using System.ComponentModel;
 using System.Numerics;
 using System.Text;
 using System.Threading;
@@ -62,7 +63,11 @@ namespace Titanis.Msrpc.Msrrp
 			return new RegistryKey(RegistryPath.GetSubkeyNameFromPath(subkeyPath), RegistryPath.Combine(this.KeyPath, subkeyPath), phkResult.value, this._owner);
 		}
 
-		public async Task<RegistryKeyInfo> QueryInfo(CancellationToken cancellationToken)
+		public Task<RegistryKeyInfo> QueryInfo(CancellationToken cancellationToken)
+			=> this.QueryInfo(includeClass: true, cancellationToken);
+
+		// includeClass can be false for access-limited keys (TBO enumeration).
+		public async Task<RegistryKeyInfo> QueryInfo(bool includeClass, CancellationToken cancellationToken)
 		{
 			RpcPointer<ms_dtyp.RPC_UNICODE_STRING> lpClassOut = new();
 			RpcPointer<uint> lpcSubKeys = new();
@@ -73,14 +78,17 @@ namespace Titanis.Msrpc.Msrrp
 			RpcPointer<uint> lpcbMaxValueLen = new();
 			RpcPointer<uint> lpcbSecurityDescriptor = new();
 			RpcPointer<ms_dtyp.FILETIME> lpftLastWriteTime = new();
-			var res = (Win32ErrorCode)await this._owner.proxy.BaseRegQueryInfoKey(
-				this._hkey,
-				new ms_dtyp.RPC_UNICODE_STRING
+			var classInput = includeClass
+				? new ms_dtyp.RPC_UNICODE_STRING
 				{
 					Buffer = new RpcPointer<ArraySegment<char>>(new ArraySegment<char>(new char[16], 0, 0)),
 					Length = 0,
 					MaximumLength = 32
-				},
+				}
+				: new ms_dtyp.RPC_UNICODE_STRING();
+			var res = (Win32ErrorCode)await this._owner.proxy.BaseRegQueryInfoKey(
+				this._hkey,
+				classInput,
 				lpClassOut,
 				lpcSubKeys,
 				lpcbMaxSubKeyLen,
@@ -96,7 +104,7 @@ namespace Titanis.Msrpc.Msrrp
 
 			return new RegistryKeyInfo
 			{
-				ClassName = lpClassOut.value.AsString(),
+				ClassName = includeClass ? lpClassOut.value.AsString() : null,
 				SubkeyCount = (int)lpcSubKeys.value,
 				MaxSubkeyLength = (int)lpcbMaxSubKeyLen.value,
 				MaxClassLength = (int)lpcbMaxClassLen.value,
@@ -121,53 +129,128 @@ namespace Titanis.Msrpc.Msrrp
 
 		public async IAsyncEnumerable<RegistrySubkeyInfo> GetSubkeyNames(CancellationToken cancellationToken)
 		{
-			var keyInfo = await this.QueryInfo(cancellationToken).ConfigureAwait(false);
-
-			int index = 0;
-			Win32ErrorCode res;
-			ms_dtyp.RPC_UNICODE_STRING lpNameIn = new() { MaximumLength = (ushort)(keyInfo.MaxSubkeyLength * 2) };
-			RpcPointer<ms_dtyp.RPC_UNICODE_STRING> lpNameOut = new();
-			RpcPointer<ms_dtyp.RPC_UNICODE_STRING> lpClassIn = new(new ms_dtyp.RPC_UNICODE_STRING() { MaximumLength = (ushort)(keyInfo.MaxClassLength * 2) });
-			RpcPointer<RpcPointer<ms_dtyp.RPC_UNICODE_STRING>> lplpClassOut = new();
-			while ((res = (Win32ErrorCode)await this._owner.proxy.BaseRegEnumKey(
-					this._hkey,
-					(uint)index++,
-					lpNameIn,
-					lpNameOut,
-					lpClassIn,
-					lplpClassOut,
-					new RpcPointer<ms_dtyp.FILETIME>(),
-					cancellationToken
-					).ConfigureAwait(false)) == Win32ErrorCode.ERROR_SUCCESS)
+			RegistryKeyInfo? keyInfo;
+			try
 			{
-				var name = lpNameOut.value.AsString().TrimEnd('\0');
-				var className = lplpClassOut.value.value.AsString()?.TrimEnd('\0');
-
-				yield return new RegistrySubkeyInfo(name, className);
+				keyInfo = await this.QueryInfo(cancellationToken).ConfigureAwait(false);
+			}
+			catch (Win32Exception ex) when (ex.NativeErrorCode is (int)Win32ErrorCode.ERROR_ACCESS_DENIED)
+			{
+				// TBO needs to enumerate subkeys even when class metadata is access-restricted.
+				keyInfo = null;
 			}
 
-			if (res is not Win32ErrorCode.ERROR_SUCCESS and not Win32ErrorCode.ERROR_NO_MORE_ITEMS)
+			if (keyInfo != null)
+			{
+				int index = 0;
+				Win32ErrorCode res;
+				ms_dtyp.RPC_UNICODE_STRING lpNameIn = new() { MaximumLength = (ushort)(keyInfo.MaxSubkeyLength * 2) };
+				RpcPointer<ms_dtyp.RPC_UNICODE_STRING> lpNameOut = new();
+				RpcPointer<ms_dtyp.RPC_UNICODE_STRING> lpClassIn = new(new ms_dtyp.RPC_UNICODE_STRING() { MaximumLength = (ushort)(keyInfo.MaxClassLength * 2) });
+				RpcPointer<RpcPointer<ms_dtyp.RPC_UNICODE_STRING>> lplpClassOut = new();
+				while ((res = (Win32ErrorCode)await this._owner.proxy.BaseRegEnumKey(
+						this._hkey,
+						(uint)index++,
+						lpNameIn,
+						lpNameOut,
+						lpClassIn,
+						lplpClassOut,
+						new RpcPointer<ms_dtyp.FILETIME>(),
+						cancellationToken
+						).ConfigureAwait(false)) == Win32ErrorCode.ERROR_SUCCESS)
+				{
+					var name = lpNameOut.value.AsString().TrimEnd('\0');
+					var className = lplpClassOut.value.value.AsString()?.TrimEnd('\0');
+
+					yield return new RegistrySubkeyInfo(name, className);
+				}
+
+				if (res is not Win32ErrorCode.ERROR_SUCCESS and not Win32ErrorCode.ERROR_NO_MORE_ITEMS)
+					res.CheckAndThrow();
+
+				yield break;
+			}
+
+			// Fallback enumeration without class info.
+			int nameChars = 256;
+			int indexFallback = 0;
+			while (true)
+			{
+				Win32ErrorCode res;
+				while (true)
+				{
+					var nameBuffer = new char[nameChars];
+					ms_dtyp.RPC_UNICODE_STRING lpNameIn = new()
+					{
+						MaximumLength = (ushort)(nameChars * 2),
+						Buffer = new RpcPointer<ArraySegment<char>>(new ArraySegment<char>(nameBuffer, 0, 0))
+					};
+					RpcPointer<ms_dtyp.RPC_UNICODE_STRING> lpNameOut = new();
+					RpcPointer<ms_dtyp.RPC_UNICODE_STRING> lpClassIn = new(new ms_dtyp.RPC_UNICODE_STRING());
+					RpcPointer<RpcPointer<ms_dtyp.RPC_UNICODE_STRING>> lplpClassOut = new();
+
+					res = (Win32ErrorCode)await this._owner.proxy.BaseRegEnumKey(
+						this._hkey,
+						(uint)indexFallback,
+						lpNameIn,
+						lpNameOut,
+						lpClassIn,
+						lplpClassOut,
+						new RpcPointer<ms_dtyp.FILETIME>(),
+						cancellationToken
+						).ConfigureAwait(false);
+
+					if (res == Win32ErrorCode.ERROR_MORE_DATA)
+					{
+						nameChars *= 2;
+						continue;
+					}
+
+					if (res == Win32ErrorCode.ERROR_SUCCESS)
+					{
+						var name = lpNameOut.value.AsString().TrimEnd('\0');
+						yield return new RegistrySubkeyInfo(name, null);
+					}
+
+					break;
+				}
+
+				if (res == Win32ErrorCode.ERROR_SUCCESS)
+				{
+					indexFallback++;
+					continue;
+				}
+
+				if (res == Win32ErrorCode.ERROR_NO_MORE_ITEMS)
+					yield break;
+
 				res.CheckAndThrow();
+			}
 		}
 
 		public IAsyncEnumerable<RegistryValueInfo> GetValueNames(CancellationToken cancellationToken) => this.GetValues(false, cancellationToken);
 		public async IAsyncEnumerable<RegistryValueInfo> GetValues(bool includeData, CancellationToken cancellationToken)
 		{
 			var keyInfo = await this.QueryInfo(cancellationToken).ConfigureAwait(false);
+			if (keyInfo.ValueCount == 0)
+				yield break;
 
-			int cbBuffer = keyInfo.MaxValueDataLength;
-			int cbLen = keyInfo.MaxValueDataLength;
-
+			int valueNameChars = Math.Max(1, keyInfo.MaxValueNameLength + 1);
+			int cbBuffer = includeData ? Math.Max(1, keyInfo.MaxValueDataLength) : 0;
 
 			int index = 0;
 			Win32ErrorCode res;
 			RpcPointer<ms_dtyp.RPC_UNICODE_STRING> lpValueNameOut = new();
 			RpcPointer<uint> lpType = new();
 
-			byte[] stubBuffer = new byte[cbBuffer];
+			byte[] stubBuffer = includeData ? new byte[cbBuffer] : Array.Empty<byte>();
 			RpcPointer<ArraySegment<byte>> lpData = includeData ? new(new ArraySegment<byte>(stubBuffer, 0, 0)) : null;
 
-			ms_dtyp.RPC_UNICODE_STRING lpValueNameIn = new() { MaximumLength = (ushort)(keyInfo.MaxValueNameLength * 2), Buffer = new RpcPointer<ArraySegment<char>>(new ArraySegment<char>(new char[keyInfo.MaxValueNameLength], 0, 0)) };
+			ms_dtyp.RPC_UNICODE_STRING lpValueNameIn = new()
+			{
+				MaximumLength = (ushort)(valueNameChars * 2),
+				Buffer = new RpcPointer<ArraySegment<char>>(new ArraySegment<char>(new char[valueNameChars], 0, 0))
+			};
 			RpcPointer<uint> lpcbData = new(includeData ? (uint)cbBuffer : 0);
 			RpcPointer<uint> lpcbLen = new(0U);
 			while ((res = (Win32ErrorCode)await this._owner.proxy.BaseRegEnumValue(
@@ -302,7 +385,8 @@ namespace Titanis.Msrpc.Msrrp
 			byte[]? data = lpData.value.Array;
 			if (data != null && lpcbLen.value < data.Length)
 				Array.Resize(ref data, (int)lpcbLen.value);
-			return new RegistryValueInfo(name, (RegistryValueType)lpType.value, 0, data, null);
+			var valueType = (RegistryValueType)lpType.value;
+			return new RegistryValueInfo(name ?? string.Empty, valueType, 0, data, TryDecodeValue(valueType, data));
 		}
 
 		internal static object? TryDecodeValue(RegistryValueType valueType, byte[]? data)

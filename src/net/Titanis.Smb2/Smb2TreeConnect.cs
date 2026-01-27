@@ -330,6 +330,10 @@ namespace Titanis.Smb2
 				createInfo = new Smb2CreateInfo();
 			}
 
+			// TBO enforces backup-intent opens by injecting required create options.
+			if (this.Session.RequiredCreateOptions != Smb2FileCreateOptions.None)
+				createInfo.CreateOptions |= this.Session.RequiredCreateOptions;
+
 			if (fileName == null)
 				throw new ArgumentNullException(nameof(fileName));
 

@@ -206,6 +206,22 @@ FileInfoClass.NetworkOpenInfo), DefaultMaxResponseSize)
 			return null;
 		}
 
+		// Used by TBO to apply security descriptors via SMB2 SET_INFO.
+		public async Task SetSecurityAsync(
+			SecurityDescriptor securityDescriptor,
+			SecurityInfo securityInfo,
+			CancellationToken cancellationToken)
+		{
+			if (securityDescriptor is null) throw new ArgumentNullException(nameof(securityDescriptor));
+			if (securityInfo == SecurityInfo.None) throw new ArgumentException("Security info must specify at least one section.", nameof(securityInfo));
+
+			var req = new Smb2SetInfoRequest(this.Handle, new SecurityDescriptorInfo(securityDescriptor.ToByteArray()))
+			{
+				Additional = securityInfo
+			};
+			_ = (Pdus.Smb2SetInfoResponse)await this.Tree.SendSyncPduAsync(req, cancellationToken).ConfigureAwait(false);
+		}
+
 		public const int DefaultStreamInfoSize = 16384;
 		/// <summary>
 		/// Gets a list of data streams in the file.
