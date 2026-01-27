@@ -7,8 +7,9 @@ SHORT DESCRIPTION
 LONG DESCRIPTION
     The TBO.Reg provider exposes the remote Windows registry as a PowerShell
     drive. The drive root is the server name, and the top-level items are
-    registry hives (HKLM, HKCU, HKU, etc). Keys enumerate subkeys and values;
-    the default value is shown as (Default).
+    registry hives (HKLM, HKCU, HKU, etc). Keys enumerate subkeys by default.
+    Use -IncludeValues or -IncludeData to include values. The default value is
+    shown as (Default).
 
     The provider uses the winreg named pipe over IPC$ and opens keys using
     backup/restore semantics. Use Set-TBORegConnectOptions or New-PSDrive
@@ -16,8 +17,8 @@ LONG DESCRIPTION
 
 PROVIDER FEATURES
     - Navigation: Get-ChildItem, Set-Location, and key enumeration.
-    - Values: Get-ChildItem lists value metadata. Use -IncludeData to
-      retrieve value data.
+    - Values: Get-ChildItem lists subkeys by default. Use -IncludeValues to
+      include value metadata and -IncludeData to retrieve value data.
     - Content: Get-Content reads a registry value's data (typed value when
       available, or byte[] for binary types).
     - Write: New-Item/Remove-Item manage keys, Set-ItemProperty and
@@ -63,6 +64,7 @@ EXAMPLES
     Example 2: Enumerate keys and values
         Set-Location tbo-reg:\HKLM\SOFTWARE
         Get-ChildItem
+        Get-ChildItem -IncludeValues
         Get-ChildItem -IncludeData
 
     Example 3: Read a registry value with Get-Content

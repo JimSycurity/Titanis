@@ -41,5 +41,55 @@
 				</TableRowEntries>
 			</TableControl>
 		</View>
+		<View>
+			<Name>Titanis.Tbo.Smb2.PowerShell.TboRegHiveItem</Name>
+			<ViewSelectedBy>
+				<TypeName>Titanis.Tbo.Smb2.PowerShell.TboRegHiveItem</TypeName>
+			</ViewSelectedBy>
+			<TableControl>
+				<TableHeaders>
+					<TableColumnHeader>
+						<Label>Name</Label>
+					</TableColumnHeader>
+				</TableHeaders>
+				<TableRowEntries>
+					<TableRowEntry>
+						<TableColumnItems>
+							<TableColumnItem>
+								<PropertyName>Name</PropertyName>
+							</TableColumnItem>
+						</TableColumnItems>
+					</TableRowEntry>
+				</TableRowEntries>
+			</TableControl>
+		</View>
+		<View>
+			<Name>Titanis.Tbo.Smb2.PowerShell.TboRegistrySubkeyInfo</Name>
+			<ViewSelectedBy>
+				<TypeName>Titanis.Tbo.Smb2.PowerShell.TboRegistrySubkeyInfo</TypeName>
+			</ViewSelectedBy>
+			<TableControl>
+				<TableHeaders>
+					<TableColumnHeader>
+						<Label>Name</Label>
+					</TableColumnHeader>
+					<TableColumnHeader>
+						<Label>Property</Label>
+					</TableColumnHeader>
+				</TableHeaders>
+				<TableRowEntries>
+					<TableRowEntry>
+						<TableColumnItems>
+							<TableColumnItem>
+								<PropertyName>Name</PropertyName>
+							</TableColumnItem>
+							<TableColumnItem>
+								<PropertyName>Property</PropertyName>
+							</TableColumnItem>
+						</TableColumnItems>
+					</TableRowEntry>
+				</TableRowEntries>
+			</TableControl>
+		</View>
 	</ViewDefinitions>
 </Configuration>

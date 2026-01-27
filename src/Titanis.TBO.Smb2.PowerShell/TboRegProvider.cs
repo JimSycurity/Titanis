@@ -228,19 +228,40 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				var parsed = RegistryPathParser.Parse(providerPath, nameof(path));
 				using var session = OpenRegistrySession(drive.ServerName, token);
 				using var key = OpenRegistryKey(session.Client, parsed, RegistryAccessRights.EnumerateSubkeys | RegistryAccessRights.QueryValue, token);
-				var includeData = (this.DynamicParameters as TboRegGetChildItemParams)?.IncludeData.IsPresent ?? false;
+				var childParams = this.DynamicParameters as TboRegGetChildItemParams;
+				var includeValues = childParams?.IncludeValues.IsPresent ?? false;
+				var includeData = childParams?.IncludeData.IsPresent ?? false;
+				if (includeData)
+					includeValues = true;
 
 				foreach (var subkey in EnumerateSubkeys(key, token))
 				{
-					var item = new TboRegistrySubkeyInfo(drive.ServerName, parsed.KeyPath, subkey);
+					var propertyNames = Array.Empty<string>();
+					try
+					{
+						using var subkeyHandle = key.OpenSubkey(subkey.KeyName, RegistryAccessRights.QueryValue, BackupOptions, token).GetAwaiter().GetResult();
+						propertyNames = CollectValueNames(subkeyHandle, token);
+					}
+					catch (OperationCanceledException)
+					{
+						throw;
+					}
+					catch
+					{
+					}
+
+					var item = new TboRegistrySubkeyInfo(drive.ServerName, parsed.KeyPath, subkey, propertyNames);
 					this.WriteItemObject(item, item.KeyPath, true);
 				}
 
-				foreach (var value in EnumerateValues(key, includeData, token))
+				if (includeValues)
 				{
-					var normalizedName = NormalizeValueName(value.Name);
-					var valueInfo = new TboRegistryValueInfo(drive.ServerName, parsed.KeyPath, value);
-					this.WriteItemObject(valueInfo, CombineProviderPath(parsed.KeyPath, normalizedName), false);
+					foreach (var value in EnumerateValues(key, includeData, token))
+					{
+						var normalizedName = NormalizeValueName(value.Name);
+						var valueInfo = new TboRegistryValueInfo(drive.ServerName, parsed.KeyPath, value);
+						this.WriteItemObject(valueInfo, CombineProviderPath(parsed.KeyPath, normalizedName), false);
+					}
 				}
 			});
 		}
@@ -724,6 +745,18 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			return values;
 		}
 
+		private static string[] CollectValueNames(RegistryKey key, CancellationToken cancellationToken)
+		{
+			var values = CollectValues(key, includeData: false, cancellationToken);
+			if (values.Count == 0)
+				return Array.Empty<string>();
+
+			var names = new string[values.Count];
+			for (int i = 0; i < values.Count; i++)
+				names[i] = NormalizeValueName(values[i].Name);
+			return names;
+		}
+
 		private static bool TryValueExists(RemoteRegistryClient client, RegistryPathSpec path, CancellationToken cancellationToken)
 		{
 			if (string.IsNullOrEmpty(path.SubkeyPath))
@@ -956,6 +989,9 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 	internal sealed class TboRegGetChildItemParams
 	{
+		[Parameter]
+		public SwitchParameter IncludeValues { get; set; }
+
 		[Parameter]
 		public SwitchParameter IncludeData { get; set; }
 	}

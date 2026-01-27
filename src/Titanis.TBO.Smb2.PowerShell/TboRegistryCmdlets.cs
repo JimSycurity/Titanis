@@ -86,13 +86,14 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 	public sealed class TboRegistrySubkeyInfo
 	{
-		public TboRegistrySubkeyInfo(string serverName, string parentKeyPath, RegistrySubkeyInfo info)
+		public TboRegistrySubkeyInfo(string serverName, string parentKeyPath, RegistrySubkeyInfo info, IReadOnlyList<string>? propertyNames = null)
 		{
 			this.ServerName = serverName;
 			this.ParentKeyPath = parentKeyPath;
 			this.Name = info.KeyName;
 			this.KeyPath = string.IsNullOrEmpty(parentKeyPath) ? info.KeyName : $"{parentKeyPath}\\{info.KeyName}";
 			this.ClassName = info.ClassName;
+			this.Property = propertyNames ?? Array.Empty<string>();
 		}
 
 		public string ServerName { get; }
@@ -100,6 +101,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		public string Name { get; }
 		public string KeyPath { get; }
 		public string? ClassName { get; }
+		public IReadOnlyList<string> Property { get; }
 	}
 
 	public sealed class TboRegistryValueInfo
