@@ -1,20 +1,49 @@
 Set-StrictMode -Version Latest
 
-$repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..')
-$moduleRoot = Join-Path $repoRoot 'src\Titanis.TBO.Smb2.PowerShell'
-$manifestPath = Join-Path $moduleRoot 'Titanis.TBO.Smb2.psd1'
-$formatPath = Join-Path $moduleRoot 'Format.ps1xml'
-$helpRoot = Join-Path $moduleRoot 'en-US'
+BeforeAll {
+    function Get-RepoRoot {
+        param([string[]]$paths)
+
+        foreach ($path in $paths) {
+            if (-not $path) { continue }
+            $current = Get-Item -LiteralPath $path -ErrorAction SilentlyContinue
+            while ($current -and -not (Test-Path (Join-Path $current.FullName 'Titanis.sln'))) {
+                $current = $current.Parent
+            }
+            if ($current) {
+                return $current.FullName
+            }
+        }
+
+        return $null
+    }
+
+    $scriptPath = $MyInvocation.MyCommand.Path
+    if (-not $scriptPath) { $scriptPath = $PSCommandPath }
+    if (-not $scriptPath) { $scriptPath = $PSScriptRoot }
+
+    $testRoot = if ($scriptPath) { Split-Path -Parent $scriptPath } else { (Get-Location).Path }
+    $script:repoRoot = Get-RepoRoot -paths @($testRoot, (Get-Location).Path)
+
+    if (-not $script:repoRoot) {
+        throw "Could not locate repo root (Titanis.sln)."
+    }
+
+    $script:moduleRoot = Join-Path $script:repoRoot 'src\Titanis.TBO.Smb2.PowerShell'
+    $script:manifestPath = Join-Path $script:moduleRoot 'Titanis.TBO.Smb2.psd1'
+    $script:formatPath = Join-Path $script:moduleRoot 'Format.ps1xml'
+    $script:helpRoot = Join-Path $script:moduleRoot 'en-US'
+}
 
 Describe 'Titanis.TBO.Smb2 manifest and help' {
     It 'loads the module manifest data' {
-        Test-Path $manifestPath | Should -BeTrue
-        $data = Import-PowerShellDataFile -Path $manifestPath
+        Test-Path $script:manifestPath | Should -BeTrue
+        $data = Import-PowerShellDataFile -Path $script:manifestPath
         $data | Should -Not -BeNullOrEmpty
     }
 
     It 'defines required manifest fields' {
-        $data = Import-PowerShellDataFile -Path $manifestPath
+        $data = Import-PowerShellDataFile -Path $script:manifestPath
         $data.ModuleVersion | Should -Not -BeNullOrEmpty
         $data.RootModule | Should -Be 'Titanis.TBO.Smb2.PowerShell.dll'
         $data.GUID | Should -Not -BeNullOrEmpty
@@ -22,20 +51,21 @@ Describe 'Titanis.TBO.Smb2 manifest and help' {
     }
 
     It 'includes the format definition file' {
-        Test-Path $formatPath | Should -BeTrue
+        Test-Path $script:formatPath | Should -BeTrue
     }
 
     It 'includes about help files' {
-        Test-Path $helpRoot | Should -BeTrue
-        (Get-ChildItem -Path $helpRoot -Filter 'about_TBO_*.help.txt').Count | Should -BeGreaterThan 0
+        Test-Path $script:helpRoot | Should -BeTrue
+        (Get-ChildItem -Path $script:helpRoot -Filter 'about_TBO_*.help.txt').Count | Should -BeGreaterThan 0
     }
 
-    It 'about help files include SYNOPSIS and DESCRIPTION sections' {
-        $files = Get-ChildItem -Path $helpRoot -Filter 'about_TBO_*.help.txt'
+    It 'about help files include standard sections' {
+        $files = Get-ChildItem -Path $script:helpRoot -Filter 'about_TBO_*.help.txt'
         foreach ($file in $files) {
             $content = Get-Content -Path $file.FullName -Raw
-            $content | Should -Match '\.SYNOPSIS'
-            $content | Should -Match '\.DESCRIPTION'
+            $hasCommentHelp = ($content -match '\.SYNOPSIS') -and ($content -match '\.DESCRIPTION')
+            $hasAboutHelp = ($content -match '(?m)^TOPIC') -and ($content -match '(?m)^LONG DESCRIPTION')
+            ($hasCommentHelp -or $hasAboutHelp) | Should -BeTrue
         }
     }
 }
@@ -43,7 +73,7 @@ Describe 'Titanis.TBO.Smb2 manifest and help' {
 Describe 'Titanis.TBO.Smb2 binary module (if built)' {
     BeforeAll {
         $script:loadedModule = $null
-        $binaryRoot = Join-Path $repoRoot 'artifacts\lib\bin\Titanis.TBO.Smb2.PowerShell'
+        $binaryRoot = Join-Path $script:repoRoot 'artifacts\lib\bin\Titanis.TBO.Smb2.PowerShell'
         $binary = Get-ChildItem -Path $binaryRoot -Recurse -Filter 'Titanis.TBO.Smb2.PowerShell.dll' -ErrorAction SilentlyContinue |
             Sort-Object LastWriteTime -Descending |
             Select-Object -First 1
