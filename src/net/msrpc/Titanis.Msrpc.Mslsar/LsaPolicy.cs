@@ -45,6 +45,7 @@ namespace Titanis.Msrpc.Mslsar
 
 		public Task<LsaAccount> CreateAccount(SecurityIdentifier sid, CancellationToken cancellationToken)
 			=> this._lsaClient.CreateAccount(this._handle, sid, cancellationToken);
+		// TBO uses this to request explicit access levels on new accounts.
 		public Task<LsaAccount> CreateAccount(SecurityIdentifier sid, LsaAccountAccess access, CancellationToken cancellationToken)
 			=> this._lsaClient.CreateAccount(this._handle, sid, access, cancellationToken);
 		public Task<LsaAccount> OpenAccount(SecurityIdentifier sid, LsaAccountAccess access, CancellationToken cancellationToken)

@@ -205,6 +205,7 @@ FileInfoClass.NetworkOpenInfo), DefaultMaxResponseSize)
 			return null;
 		}
 
+		// Used by TBO to apply security descriptors via SMB2 SET_INFO.
 		public async Task SetSecurityAsync(
 			SecurityDescriptor securityDescriptor,
 			SecurityInfo securityInfo,

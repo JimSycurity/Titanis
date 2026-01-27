@@ -6,6 +6,7 @@ using Titanis.Winterop;
 
 namespace Titanis.Msrpc.Msrrp
 {
+	// Mutation helpers used by TBO remote registry cmdlets/provider.
 	public partial class RegistryKey
 	{
 		public async Task<RegistryKey> CreateSubkey(

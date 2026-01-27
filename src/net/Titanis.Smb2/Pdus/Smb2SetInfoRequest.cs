@@ -20,6 +20,7 @@ namespace Titanis.Smb2.Pdus
 		private readonly Smb2FileInfo _info;
 
 		internal override Smb2Command Command => Smb2Command.SetInfo;
+		// SecurityInfo flags for SET_INFO Security (used by TBO SD updates).
 		public SecurityInfo Additional
 		{
 			get => this.body.additionalInfo;

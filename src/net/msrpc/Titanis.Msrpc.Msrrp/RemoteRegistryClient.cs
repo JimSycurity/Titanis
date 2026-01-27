@@ -37,7 +37,7 @@ namespace Titanis.Msrpc.Msrrp
 
 		// [MS-RRP] § 1.9
 		public override string? WellKnownPipeName => "winreg";
-		// Observed
+		// Observed: HOSTU is required for TBO winreg bindings with backup-privileged auth.
 		/// <inheritdoc/>
 		public sealed override string? ServiceClass => ServiceClassNames.HostU;
 

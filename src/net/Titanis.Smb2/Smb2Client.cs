@@ -54,6 +54,7 @@ namespace Titanis.Smb2
 		public Smb2ConnectionOptions DefaultConnectionOptions { get; set; } = new Smb2ConnectionOptions();
 		public Smb2SessionOptions DefaultSessionOptions { get; set; } = new Smb2SessionOptions(false);
 		public Smb2ShareOptions DefaultShareOptions { get; set; } = new Smb2ShareOptions(false);
+		// Used by TBO to enforce backup-intent opens on all share operations.
 		public Smb2FileCreateOptions RequiredCreateOptions { get; set; }
 
 		/// <summary>
@@ -267,6 +268,7 @@ namespace Titanis.Smb2
 				return authContext;
 			}
 
+			// TBO may request re-auth to re-negotiate a token with required privileges.
 			const int MaxAuthAttempts = 2;
 			for (int attempt = 0; attempt < MaxAuthAttempts; attempt++)
 			{

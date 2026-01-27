@@ -318,6 +318,7 @@ namespace Titanis.Msrpc.Mslsar
 			return ppCurrentValue.value?.value.Buffer?.value.ToArray();
 		}
 
+		// TBO needs a configurable access mask when creating LSA accounts.
 		internal Task<LsaAccount> CreateAccount(RpcContextHandle handle, SecurityIdentifier sid, CancellationToken cancellationToken)
 			=> this.CreateAccount(handle, sid, LsaAccountAccess.View, cancellationToken);
 

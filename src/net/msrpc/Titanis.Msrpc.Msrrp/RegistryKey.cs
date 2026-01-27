@@ -107,6 +107,7 @@ namespace Titanis.Msrpc.Msrrp
 		public Task<RegistryKeyInfo> QueryInfo(CancellationToken cancellationToken)
 			=> this.QueryInfo(includeClass: true, cancellationToken);
 
+		// includeClass can be false for access-limited keys (TBO enumeration).
 		public async Task<RegistryKeyInfo> QueryInfo(bool includeClass, CancellationToken cancellationToken)
 		{
 			RpcPointer<ms_dtyp.RPC_UNICODE_STRING> lpClassOut = new();
@@ -176,6 +177,7 @@ namespace Titanis.Msrpc.Msrrp
 			}
 			catch (Win32Exception ex) when (ex.NativeErrorCode is (int)Win32ErrorCode.ERROR_ACCESS_DENIED)
 			{
+				// TBO needs to enumerate subkeys even when class metadata is access-restricted.
 				keyInfo = null;
 			}
 
@@ -210,6 +212,7 @@ namespace Titanis.Msrpc.Msrrp
 				yield break;
 			}
 
+			// Fallback enumeration without class info.
 			int nameChars = 256;
 			int indexFallback = 0;
 			while (true)

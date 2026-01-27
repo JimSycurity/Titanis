@@ -92,6 +92,7 @@ namespace Titanis.Winterop.Security
 			if (offDacl != 0 && 0 != (control & SecurityDescriptorControl.DaclPresent))
 				this.Dacl = new AccessControlList(bytes.Slice(offDacl));
 			if (offSacl != 0 && 0 != (control & SecurityDescriptorControl.SaclPresent))
+				// Use SACL offset (bug fix: previously used DACL offset).
 				this.Sacl = new AccessControlList(bytes.Slice(offSacl));
 		}
 		public SecurityDescriptor(
@@ -221,6 +222,7 @@ namespace Titanis.Winterop.Security
 		private static int Align8(int off)
 		{
 			if ((off & 7) != 0)
+				// Align to 8-byte boundary (bug fix for precedence/bitmask).
 				off = (off + 7) & ~7;
 			return off;
 		}

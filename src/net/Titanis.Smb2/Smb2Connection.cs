@@ -878,7 +878,7 @@ namespace Titanis.Smb2
 			}
 
 			var creditsGranted = pdu.pduhdr.creditReqResp;
-			// Allow opt-in fallback for zero-credit responses (named pipe RPC workflows).
+			// Allow opt-in fallback for zero-credit responses (named pipe RPC workflows like TBO winreg).
 			if (this.Options.AllowZeroCreditFallback && creditsGranted == 0 && this._credits == 0)
 				creditsGranted = 1;
 			this._credits += creditsGranted;

@@ -66,7 +66,7 @@ namespace Titanis.Smb2
 		/// </summary>
 		/// <remarks>
 		/// This is intended for specific SMB2 named pipe workflows that intermittently return
-		/// zero credits during RPC enumeration.
+		/// zero credits during RPC enumeration (e.g., TBO winreg enumeration).
 		/// </remarks>
 		public bool AllowZeroCreditFallback { get; set; }
 		/// <summary>
