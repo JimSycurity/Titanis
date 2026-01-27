@@ -73,7 +73,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 		public string ServerName { get; }
 		public string KeyPath { get; }
-		public string ClassName { get; }
+		public string? ClassName { get; }
 		public int SubkeyCount { get; }
 		public int MaxSubkeyLength { get; }
 		public int MaxClassLength { get; }
@@ -250,6 +250,9 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		[Alias("KeyPath")]
 		public string Path { get; set; } = string.Empty;
 
+		[Parameter]
+		public SwitchParameter IncludeClass { get; set; }
+
 		protected override void ProcessRecord(SmbProviderInfo smb, CancellationToken cancellationToken)
 		{
 			var parsedPath = ParseRegistryPath(this.Path, nameof(this.Path));
@@ -260,7 +263,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				RegistryAccessRights.QueryValue | RegistryAccessRights.EnumerateSubkeys,
 				cancellationToken);
 
-			var info = key.QueryInfo(cancellationToken).GetAwaiter().GetResult();
+			var info = key.QueryInfo(this.IncludeClass.IsPresent, cancellationToken).GetAwaiter().GetResult();
 			this.WriteObject(new TboRegistryKeyInfo(this.ServerName, parsedPath.KeyPath, info));
 		}
 	}

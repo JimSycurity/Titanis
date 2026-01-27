@@ -266,6 +266,7 @@ Gets metadata for a remote registry key.
 
 ```powershell
 Get-TBORegKey -ServerName corp1-web01.corp1.lab.home-labs.lol -Path HKLM\SOFTWARE
+Get-TBORegKey -ServerName corp1-web01.corp1.lab.home-labs.lol -Path HKLM\SOFTWARE -IncludeClass
 ```
 
 #### Get-TBORegChildItem

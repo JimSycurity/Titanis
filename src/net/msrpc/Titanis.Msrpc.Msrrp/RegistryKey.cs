@@ -30,7 +30,7 @@ namespace Titanis.Msrpc.Msrrp
 
 	public class RegistryKeyInfo
 	{
-		public string ClassName { get; set; }
+		public string? ClassName { get; set; }
 		public int SubkeyCount { get; set; }
 		public int MaxSubkeyLength { get; set; }
 		public int MaxClassLength { get; set; }
@@ -103,7 +103,10 @@ namespace Titanis.Msrpc.Msrrp
 			return new RegistryKey(RegistryPath.GetSubkeyNameFromPath(subkeyPath), RegistryPath.Combine(this.KeyPath, subkeyPath), phkResult.value, this._owner);
 		}
 
-		public async Task<RegistryKeyInfo> QueryInfo(CancellationToken cancellationToken)
+		public Task<RegistryKeyInfo> QueryInfo(CancellationToken cancellationToken)
+			=> this.QueryInfo(includeClass: true, cancellationToken);
+
+		public async Task<RegistryKeyInfo> QueryInfo(bool includeClass, CancellationToken cancellationToken)
 		{
 			RpcPointer<ms_dtyp.RPC_UNICODE_STRING> lpClassOut = new();
 			RpcPointer<uint> lpcSubKeys = new();
@@ -114,14 +117,17 @@ namespace Titanis.Msrpc.Msrrp
 			RpcPointer<uint> lpcbMaxValueLen = new();
 			RpcPointer<uint> lpcbSecurityDescriptor = new();
 			RpcPointer<ms_dtyp.FILETIME> lpftLastWriteTime = new();
-			var res = (Win32ErrorCode)await this._owner.proxy.BaseRegQueryInfoKey(
-				this._hkey,
-				new ms_dtyp.RPC_UNICODE_STRING
+			var classInput = includeClass
+				? new ms_dtyp.RPC_UNICODE_STRING
 				{
 					Buffer = new RpcPointer<ArraySegment<char>>(new ArraySegment<char>(new char[16], 0, 0)),
 					Length = 0,
 					MaximumLength = 32
-				},
+				}
+				: new ms_dtyp.RPC_UNICODE_STRING();
+			var res = (Win32ErrorCode)await this._owner.proxy.BaseRegQueryInfoKey(
+				this._hkey,
+				classInput,
 				lpClassOut,
 				lpcSubKeys,
 				lpcbMaxSubKeyLen,
@@ -137,7 +143,7 @@ namespace Titanis.Msrpc.Msrrp
 
 			return new RegistryKeyInfo
 			{
-				ClassName = lpClassOut.value.AsString(),
+				ClassName = includeClass ? lpClassOut.value.AsString() : null,
 				SubkeyCount = (int)lpcSubKeys.value,
 				MaxSubkeyLength = (int)lpcbMaxSubKeyLen.value,
 				MaxClassLength = (int)lpcbMaxClassLen.value,
