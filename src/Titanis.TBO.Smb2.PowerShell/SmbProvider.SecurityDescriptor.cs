@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Management.Automation;
 using System.Management.Automation.Provider;
+using System.Runtime.Versioning;
 using System.Security.AccessControl;
 using Titanis.Net;
 using Titanis.Smb2;
@@ -15,7 +16,8 @@ namespace Titanis.Tbo.Smb2.PowerShell
 	{
 		private const int DefaultSecurityDescriptorBufferSize = 8192;
 
-		public void GetSecurityDescriptor(string path, AccessControlSections sections)
+		[SupportedOSPlatform("windows")]
+		public void GetSecurityDescriptor(string path, AccessControlSections includeSections)
 		{
 			EnsureWindowsAclSupport("Get-Acl");
 			if (string.IsNullOrWhiteSpace(path))
@@ -23,11 +25,12 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 			var snapshotPath = ResolveSnapshotPath(ResolveToUncPath(path, nameof(path)));
 			var descriptor = this.BeginOperation(cancellationToken =>
-				ReadSecurityDescriptor(snapshotPath, sections, cancellationToken));
+				ReadSecurityDescriptor(snapshotPath, includeSections, cancellationToken));
 
 			this.WriteSecurityDescriptorObject(descriptor, snapshotPath.OriginalPath.ToString());
 		}
 
+		[SupportedOSPlatform("windows")]
 		public void SetSecurityDescriptor(string path, ObjectSecurity securityDescriptor)
 		{
 			EnsureWindowsAclSupport("Set-Acl");
@@ -52,7 +55,8 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			});
 		}
 
-		public ObjectSecurity NewSecurityDescriptorFromPath(string path, AccessControlSections sections)
+		[SupportedOSPlatform("windows")]
+		public ObjectSecurity NewSecurityDescriptorFromPath(string path, AccessControlSections includeSections)
 		{
 			EnsureWindowsAclSupport("Get-Acl");
 			if (string.IsNullOrWhiteSpace(path))
@@ -60,15 +64,17 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 			var snapshotPath = ResolveSnapshotPath(ResolveToUncPath(path, nameof(path)));
 			return this.BeginOperation(cancellationToken =>
-				ReadSecurityDescriptor(snapshotPath, sections, cancellationToken));
+				ReadSecurityDescriptor(snapshotPath, includeSections, cancellationToken));
 		}
 
-		public ObjectSecurity NewSecurityDescriptorOfType(string type, AccessControlSections sections)
+		[SupportedOSPlatform("windows")]
+		public ObjectSecurity NewSecurityDescriptorOfType(string type, AccessControlSections includeSections)
 		{
 			EnsureWindowsAclSupport("Get-Acl");
 			return CreateObjectSecurity(type);
 		}
 
+		[SupportedOSPlatform("windows")]
 		private ObjectSecurity ReadSecurityDescriptor(
 			SnapshotPath snapshotPath,
 			AccessControlSections sections,
@@ -115,6 +121,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			}
 		}
 
+		[SupportedOSPlatform("windows")]
 		private void WriteSecurityDescriptor(
 			UncPath uncPath,
 			SecurityDescriptor securityDescriptor,
@@ -156,6 +163,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			}
 		}
 
+		[SupportedOSPlatform("windows")]
 		private static SecurityInfo MapSecurityInfo(AccessControlSections sections)
 		{
 			var securityInfo = SecurityInfo.None;
@@ -174,6 +182,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			return securityInfo;
 		}
 
+		[SupportedOSPlatform("windows")]
 		private static SecurityInfo InferSecurityInfo(SecurityDescriptor securityDescriptor)
 		{
 			if (securityDescriptor is null)
@@ -195,6 +204,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			return info;
 		}
 
+		[SupportedOSPlatform("windows")]
 		private static ObjectSecurity CreateObjectSecurity(string type)
 		{
 			if (!string.IsNullOrEmpty(type)
@@ -206,11 +216,13 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			return new FileSecurity();
 		}
 
+		[SupportedOSPlatform("windows")]
 		private static ObjectSecurity CreateObjectSecurity(bool isDirectory)
 		{
 			return isDirectory ? new DirectorySecurity() : new FileSecurity();
 		}
 
+		[SupportedOSPlatform("windows")]
 		private static void EnsureWindowsAclSupport(string operation)
 		{
 			if (!OperatingSystem.IsWindows())
