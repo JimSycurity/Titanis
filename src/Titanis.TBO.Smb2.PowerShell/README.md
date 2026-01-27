@@ -40,6 +40,8 @@ Get-ChildItem TBO.Smb2::\\corp1-web01.corp1.lab.home-labs.lol\C$\Windows
 
 Use `Get-Help about_TBO_Smb2_Provider` for supported item types, dynamic parameters, and limitations (for example, content writing is not implemented).
 
+On Windows, `Get-Acl` and `Set-Acl` work with `tbo:\` and provider-qualified UNC paths. Snapshot paths are read-only.
+
 ## Provider (TBO.Reg) (Preview)
 
 The `TBO.Reg` provider exposes the remote registry through a per-server PSDrive. The drive root is the server name, and the top-level items are hives (HKLM, HKCU, HKU, etc). Keys enumerate subkeys and values; the default value is shown as `(Default)`.

@@ -38,7 +38,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 	/// Implements a <see cref="NavigationCmdletProvider"/> for the SMB namespace.
 	/// </summary>
 	[CmdletProvider(ProviderName, ProviderCapabilities.None)]
-	public partial class SmbProvider : NavigationCmdletProvider
+	public partial class SmbProvider : NavigationCmdletProvider, ISecurityDescriptorCmdletProvider
 	{
 		public const string ProviderName = "TBO.Smb2";
 

@@ -20,6 +20,7 @@ PROVIDER FEATURES
     - Set-ItemProperty: Updates timestamps or attributes (touch behavior).
     - Content: Get-Content is supported; content writing is not implemented.
     - Security: Use Get-TBOSmbSecurityDescriptor / Set-TBOSmbSecurityDescriptor.
+    - ACL: Get-Acl / Set-Acl are supported on Windows (security descriptors only).
 
 DYNAMIC PARAMETERS
     New-PSDrive and Set-TBOSmbConnectOptions accept dynamic SMB options:
@@ -75,4 +76,5 @@ NOTES
     - Use Copy-TBOSmbItem for file copies between local and SMB paths.
     - Use provider-qualified paths to target UNC paths without a drive:
         TBO.Smb2::\\server\share\path
+    - Get-Acl/Set-Acl are Windows-only. Snapshot paths are read-only.
     - Set TITANIS_TBO_LOG=1 to enable diagnostic logging.
