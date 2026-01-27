@@ -251,6 +251,9 @@ $sd = [Titanis.Tbo.Smb2.PowerShell.TBOSD]::FromRegistryBinary($sdBytes)
 
 $base64 = [Titanis.Tbo.Smb2.PowerShell.TBOSD]::ToRegistryBase64($sd)
 $sd2 = [Titanis.Tbo.Smb2.PowerShell.TBOSD]::FromRegistryBase64($base64)
+
+# Windows-only raw security descriptor
+$raw = [Titanis.Tbo.Smb2.PowerShell.TBOSD]::FromRegistryBinaryAsWindows($sdBytes)
 ```
 
 ### Remote Registry Cmdlets (MS-RRP)
