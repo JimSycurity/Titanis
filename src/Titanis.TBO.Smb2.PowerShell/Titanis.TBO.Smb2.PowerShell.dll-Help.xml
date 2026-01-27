@@ -1387,6 +1387,55 @@ Set-TBOSmbSecurityDescriptor -Path tbo:\Windows -SecurityDescriptor $sddl -Secti
 
   <command:command>
     <command:details>
+      <command:name>Get-TBORegSessions</command:name>
+      <command:verb>Get</command:verb>
+      <command:noun>TBORegSessions</command:noun>
+      <maml:description>
+        <maml:para>Enumerates user session SIDs from HKEY_USERS on the remote host.</maml:para>
+      </maml:description>
+    </command:details>
+    <command:syntax>
+      <command:syntaxItem>
+        <command:name>Get-TBORegSessions</command:name>
+        <command:parameter required="true" position="0">
+          <maml:name>ServerName</maml:name>
+          <command:parameterValue>String</command:parameterValue>
+        </command:parameter>
+        <command:parameter required="false">
+          <maml:name>ResolveSid</maml:name>
+          <command:parameterValue>Switch</command:parameterValue>
+        </command:parameter>
+      </command:syntaxItem>
+    </command:syntax>
+    <command:parameters>
+      <command:parameter required="true" position="0">
+        <maml:name>ServerName</maml:name>
+        <maml:description>
+          <maml:para>Remote host name.</maml:para>
+        </maml:description>
+        <command:parameterValue>String</command:parameterValue>
+      </command:parameter>
+      <command:parameter>
+        <maml:name>ResolveSid</maml:name>
+        <maml:description>
+          <maml:para>Resolve SIDs to names (not implemented yet).</maml:para>
+        </maml:description>
+        <command:parameterValue>Switch</command:parameterValue>
+      </command:parameter>
+    </command:parameters>
+    <command:examples>
+      <command:example>
+        <command:title>-------------------------- EXAMPLE 1 --------------------------</command:title>
+        <maml:code>Get-TBORegSessions -ServerName corp1-web01.corp1.lab.home-labs.lol</maml:code>
+        <maml:remarks>
+          <maml:para>Lists user SIDs from HKEY_USERS.</maml:para>
+        </maml:remarks>
+      </command:example>
+    </command:examples>
+  </command:command>
+
+  <command:command>
+    <command:details>
       <command:name>Get-TBORegChildItem</command:name>
       <command:verb>Get</command:verb>
       <command:noun>TBORegChildItem</command:noun>

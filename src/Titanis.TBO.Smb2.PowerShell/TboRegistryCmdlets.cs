@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Management.Automation;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using Titanis.Msrpc.Msrrp;
 
@@ -242,6 +243,53 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			}
 
 			return values;
+		}
+	}
+
+	[Cmdlet(VerbsCommon.Get, "TBORegSessions")]
+	[OutputType(typeof(string))]
+	public sealed class GetTBORegSessions : TboRegCmdlet
+	{
+		private static readonly Regex UserSidRegex = new(@"^S-1-5-21-\d+-\d+-\d+-\d+$", RegexOptions.CultureInvariant);
+		private static readonly HashSet<string> SystemSids = new(StringComparer.OrdinalIgnoreCase)
+		{
+			"S-1-5-18",
+			"S-1-5-19",
+			"S-1-5-20"
+		};
+
+		[Parameter]
+		public SwitchParameter ResolveSid { get; set; }
+
+		protected override void ProcessRecord(SmbProviderInfo smb, CancellationToken cancellationToken)
+		{
+			if (this.ResolveSid.IsPresent)
+				throw new NotSupportedException("ResolveSid is not implemented yet.");
+
+			using var session = OpenRegistrySession(smb, cancellationToken);
+			using var rootKey = session.Client.OpenRootKey(RegistryRootKey.Users, RegistryAccessRights.EnumerateSubkeys, cancellationToken).GetAwaiter().GetResult();
+
+			List<RegistrySubkeyInfo> subkeys;
+			try
+			{
+				subkeys = CollectSubkeys(rootKey, cancellationToken);
+			}
+			catch (Exception ex)
+			{
+				smb.LogException("Get-TBORegSession failed to enumerate HKEY_USERS", ex);
+				throw;
+			}
+
+			foreach (var subkey in subkeys)
+			{
+				var sid = subkey.KeyName;
+				if (!UserSidRegex.IsMatch(sid))
+					continue;
+				if (SystemSids.Contains(sid))
+					continue;
+
+				this.WriteObject(sid);
+			}
 		}
 	}
 

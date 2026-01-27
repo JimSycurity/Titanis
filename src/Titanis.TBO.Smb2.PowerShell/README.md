@@ -270,6 +270,14 @@ Get-TBORegKey -ServerName corp1-web01.corp1.lab.home-labs.lol -Path HKLM\SOFTWAR
 Get-TBORegKey -ServerName corp1-web01.corp1.lab.home-labs.lol -Path HKLM\SOFTWARE -IncludeClass
 ```
 
+#### Get-TBORegSessions
+
+Enumerates user session SIDs from HKEY_USERS on the remote host. SYSTEM SIDs are excluded by default.
+
+```powershell
+Get-TBORegSessions -ServerName corp1-web01.corp1.lab.home-labs.lol
+```
+
 #### Get-TBORegChildItem
 
 Lists subkeys and values beneath a remote registry key.
