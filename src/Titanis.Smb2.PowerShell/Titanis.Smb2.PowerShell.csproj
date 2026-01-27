@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
@@ -12,8 +12,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\..\tools\net\smb2\Smb2Client\FileAttributeFormatter.cs" Link="FileAttributeFormatter.cs" />
-    <Compile Include="..\..\tools\net\smb2\Smb2Client\StringHelper.cs" Link="StringHelper.cs" />
+    <Compile Include="..\src\tools\net\smb2\Smb2Client\FileAttributeFormatter.cs" Link="FileAttributeFormatter.cs" />
+    <Compile Include="..\src\tools\net\smb2\Smb2Client\StringHelper.cs" Link="StringHelper.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -26,17 +26,17 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="PowerShellStandard.Library" />
+    <PackageReference Include="PowerShellStandard.Library" Version="5.1.1" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\base\Titanis.Cli\Titanis.Cli.csproj" />
-    <ProjectReference Include="..\base\Titanis.Winterop.FileInfo\Titanis.Winterop.FileInfo.csproj" />
-    <ProjectReference Include="..\net\Titanis.Smb2\Titanis.Smb2.csproj" />
-    <ProjectReference Include="..\security\Titanis.Security.Kerberos\Titanis.Security.Kerberos.csproj" />
-    <ProjectReference Include="..\security\Titanis.Security.Ntlm\Titanis.Security.Ntlm.csproj" />
-    <ProjectReference Include="..\security\Titanis.Security.Spnego\Titanis.Security.Spnego.csproj" />
-    <ProjectReference Include="..\security\Titanis.Security\Titanis.Security.csproj" />
+    <ProjectReference Include="..\src\base\Titanis.Cli\Titanis.Cli.csproj" />
+    <ProjectReference Include="..\src\base\Titanis.WinFileInfo\Titanis.WinFileInfo.csproj" />
+    <ProjectReference Include="..\src\net\Titanis.Smb2\Titanis.Smb2.csproj" />
+    <ProjectReference Include="..\src\security\Titanis.Security.Kerberos\Titanis.Security.Kerberos.csproj" />
+    <ProjectReference Include="..\src\security\Titanis.Security.Ntlm\Titanis.Security.Ntlm.csproj" />
+    <ProjectReference Include="..\src\security\Titanis.Security.Spnego\Titanis.Security.Spnego.csproj" />
+    <ProjectReference Include="..\src\security\Titanis.Security\Titanis.Security.csproj" />
   </ItemGroup>
 
 </Project>

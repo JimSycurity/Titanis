@@ -13,8 +13,6 @@ using Titanis.Security;
 using Titanis.Security.Kerberos;
 using Titanis.Security.Ntlm;
 using Titanis.Security.Spnego;
-using Titanis.Winterop.Security;
-using Winterop = Titanis.Winterop;
 
 namespace Titanis.Smb2.PowerShell
 {
@@ -187,7 +185,7 @@ namespace Titanis.Smb2.PowerShell
 					ShareAccess = Smb2ShareAccess.Read,
 					ImpersonationLevel = Smb2ImpersonationLevel.Impersonation,
 					CreateOptions = Smb2FileCreateOptions.SynchronousIoNonalert,
-					FileAttributes = Winterop.FileAttributes.Normal
+					FileAttributes = WinFileInfo.FileAttributes.Normal
 				}, FileAccess.Read, cancellationToken).Result)
 				{
 					return file.IsDirectory;
@@ -218,13 +216,13 @@ namespace Titanis.Smb2.PowerShell
 			{
 				using (var dir = this.smb.SmbClient.OpenDirectoryAsync(uncPath, cancellationToken).Result)
 				{
-					foreach (var entry in dir.QueryDirAsync("*", Smb2Directory.Smb2DirQueryOptions.QueryReparseInfo, SecurityInfo.None, Smb2Directory.DefaultQueryBufferSize, cancellationToken).Result)
+					foreach (var entry in dir.QueryDirAsync("*", Smb2Directory.Smb2DirQueryOptions.QueryReparseInfo, cancellationToken).Result)
 					{
 						if (entry.FileName is "." or "..")
 							continue;
 						UncPath itemPath = uncPath.Append(entry.FileName);
 						var smbItem = new SmbItem(itemPath, entry);
-						this.WriteItemObject(smbItem, itemPath.ToString(), 0 != (entry.FileAttributes & Winterop.FileAttributes.Directory));
+						this.WriteItemObject(smbItem, itemPath.ToString(), 0 != (entry.FileAttributes & WinFileInfo.FileAttributes.Directory));
 					}
 				}
 			});
@@ -261,7 +259,7 @@ namespace Titanis.Smb2.PowerShell
 						ShareAccess = Smb2ShareAccess.Read,
 						ImpersonationLevel = Smb2ImpersonationLevel.Impersonation,
 						CreateOptions = Smb2FileCreateOptions.SynchronousIoNonalert | Smb2FileCreateOptions.OpenReparsePoint,
-						FileAttributes = Winterop.FileAttributes.Normal
+						FileAttributes = WinFileInfo.FileAttributes.Normal
 					}, FileAccess.Read, token).Result)
 					{
 						return true;
@@ -314,12 +312,11 @@ namespace Titanis.Smb2.PowerShell
 		{
 			this.Provider = provider;
 
-			var socketService = new PlatformSocketService(this, null);
 			var client = new Smb2Client(
+				new PlatformSocketService(),
 				this,
-				socketService,
 				this,
-				null,
+				this,
 				null
 				);
 			this.SmbClient = client;
@@ -380,35 +377,24 @@ namespace Titanis.Smb2.PowerShell
 			{
 				this._kdcEP = kdcEP;
 			}
-			public EndPoint LocateKdc(string realm, LocateKdcOptions options)
+			public EndPoint FindKdc(string realm)
 			{
 				return this._kdcEP;
 			}
 		}
 
-		AuthClientContext? IClientCredentialService.GetAuthContextForResource(
-			string resourceType,
-			object resourceKey,
-			SecurityCapabilities requiredCaps,
-			AuthOptions options)
+		AuthClientContext IClientCredentialService.GetAuthContextForResource(string resourceType, string resourceKey)
 		{
-			string? serverName = resourceType switch
-			{
-				ResourceTypes.Server when resourceKey is string server => server,
-				ResourceTypes.SmbShare when resourceKey is UncPath sharePath => sharePath.ServerName,
-				_ => null
-			};
-
-			if (string.IsNullOrEmpty(serverName))
+			if (resourceType != ResourceTypes.Server)
 				return null;
 
-			var parms = this.GetConnectParametersFor(serverName, true) ?? SmbConnectionParameters.GetDefault();
+			var serverName = resourceKey;
+			var parms = this.GetConnectParametersFor(serverName, true);
 
 			// Create SPNEGO context required by SMB2
 			var authContext = new SpnegoClientContext();
 
-			var targetHost = string.IsNullOrEmpty(parms.HostName) ? serverName : parms.HostName;
-			var targetSpn = new ServicePrincipalName(ServiceClassNames.Cifs, targetHost);
+			string targetService = "cifs/" + serverName;
 
 			if (!string.IsNullOrEmpty(parms.Kdc))
 			{
@@ -423,44 +409,19 @@ namespace Titanis.Smb2.PowerShell
 					kdcEP = new DnsEndPoint(parms.Kdc, port);
 
 				KerberosClient krb = new KerberosClient(new KdcLocator(kdcEP));
-				if (!string.IsNullOrEmpty(parms.Workstation))
-				{
-					if (IPAddress.TryParse(parms.Workstation, out var workstationIp))
-						krb.Workstation = HostAddress.FromIPAddress(workstationIp);
-					else
-						krb.Workstation = HostAddress.FromNetbiosName(parms.Workstation);
-				}
+				krb.Workstation = parms.Workstation;
 
 				KerberosCredential cred;
 				if (parms.Password != null)
 					cred = new KerberosPasswordCredential(parms.UserName, parms.UserDomain, parms.Password);
 				else if (parms.NtlmHash != null)
-					cred = new KerberosKeyCredential(parms.UserName, parms.UserDomain, EType.Rc4Hmac, parms.NtlmHash.Bytes);
+					cred = new KerberosHashCredential(parms.UserName, parms.UserDomain, EType.Rc4Hmac, parms.NtlmHash.Bytes);
 				else
 					throw new InvalidOperationException("KDC option specified, but no suitable credentials were provided.");
 
-				TicketInfo? ticket = null;
-				try
-				{
-					var ticketParams = krb.GetDefaultTicketOptions(null);
-					ticket = krb.GetTicketAsync(
-						targetSpn,
-						cred.Realm,
-						cred,
-						ticketParams,
-						CancellationToken.None).GetAwaiter().GetResult();
-				}
-				catch (Exception ex)
-				{
-					this.WriteWarning($"Failed to acquire Kerberos ticket for {targetSpn}: {ex.Message}");
-				}
+				var krbContext = new KerberosClientContext(cred, krb, "cifs", parms.HostName, parms.UserDomain);
 
-				if (ticket != null)
-				{
-					var krbContext = new KerberosClientContext(cred, krb, targetSpn, ticket);
-					krbContext.RequiredCapabilities = requiredCaps;
-					authContext.Contexts.Add(krbContext);
-				}
+				authContext.Contexts.Add(krbContext);
 			}
 
 			// Create NTLM context based on parameters
@@ -478,14 +439,13 @@ namespace Titanis.Smb2.PowerShell
 
 			if (ntlmCred != null)
 			{
-				var ntlmContext = new NtlmClientContext(ntlmCred, useNtlmV2: true)
+				var ntlmContext = new NtlmClientContext(ntlmCred)
 				{
 					Workstation = parms.Workstation,
 					WorkstationDomain = parms.UserDomain,
-					TargetSpn = targetSpn,
+					TargetName = targetService,
 					ClientChannelBindingsUnhashed = new byte[16]
 				};
-				ntlmContext.RequiredCapabilities = requiredCaps;
 				ntlmContext.ClientConfigFlags |= NegotiateFlags.D_NegotiateSign;
 				// UNDONE: SMB doesn't use the provider's sealing capability
 				//if (this.Encrypt.IsSet)
@@ -512,7 +472,7 @@ namespace Titanis.Smb2.PowerShell
 			if (parms != null)
 				hostName = parms.HostName;
 
-			return PlatformNameResolverService.ResolveAsync(hostName, this.DefaultConnectParameters.NameResolveOptions.Value, null, cancellationToken);
+			return PlatformNameResolverService.ResolveAsync(hostName, this.DefaultConnectParameters.NameResolveOptions.Value, cancellationToken);
 		}
 	}
 	partial class SmbProviderInfo : ISmbOptionsService

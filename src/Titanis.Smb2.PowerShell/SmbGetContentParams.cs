@@ -8,6 +8,6 @@ namespace Titanis.Smb2.PowerShell
 		const string TypeSetName = "Type";
 
 		[Parameter(ParameterSetName = TypeSetName)]
-		public new SwitchParameter Raw { get; set; }
+		public SwitchParameter Raw { get; set; }
 	}
 }
