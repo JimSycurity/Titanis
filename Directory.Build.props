@@ -1,10 +1,13 @@
 <!-- Solution wide -->
 <Project>
 	<PropertyGroup>
+		<!-- Allow external builds (e.g., TBO repo) to override artifacts behavior. -->
 		<UseArtifactsOutput Condition="'$(UseArtifactsOutput)'==''">true</UseArtifactsOutput>
 		<ArtifactsPath>$(BUILD_BINARIESDIRECTORY)</ArtifactsPath>
+		<!-- Use repo-root-relative artifacts path when SolutionDir is not stable. -->
 		<ArtifactsPath Condition="'$(ArtifactsPath)'==''">$(MSBuildThisFileDirectory)artifacts\</ArtifactsPath>
 		<ArtifactsBasePath>$(ArtifactsPath)</ArtifactsBasePath>
+		<!-- Prevent artifacts from being globbed into builds/tests. -->
 		<DefaultItemExcludes>$(DefaultItemExcludes);**/artifacts/**</DefaultItemExcludes>
 
 		<LangVersion>12.0</LangVersion>
