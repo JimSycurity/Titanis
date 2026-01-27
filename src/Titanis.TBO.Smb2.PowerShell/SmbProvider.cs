@@ -8,6 +8,7 @@ using System.Management.Automation.Provider;
 using System.Management.Automation.Remoting;
 using System.Net;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Titanis;
 using Titanis.Cli;
@@ -369,6 +370,26 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 	public partial class SmbProviderInfo : ProviderInfo, ISmb2TraceCallback
 	{
+		private static readonly AsyncLocal<bool> s_forceZeroCreditFallback = new AsyncLocal<bool>();
+
+		private sealed class ConnectionOptionsScope : IDisposable
+		{
+			private readonly bool _previous;
+
+			public ConnectionOptionsScope(bool enabled)
+			{
+				_previous = s_forceZeroCreditFallback.Value;
+				s_forceZeroCreditFallback.Value = enabled;
+			}
+
+			public void Dispose()
+			{
+				s_forceZeroCreditFallback.Value = _previous;
+			}
+		}
+
+		internal static IDisposable EnableZeroCreditFallbackScope()
+			=> new ConnectionOptionsScope(true);
 		internal SmbProviderInfo(ProviderInfo providerInfo, SmbProvider provider) : base(providerInfo)
 		{
 			this.Provider = provider;
@@ -767,7 +788,10 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		public Smb2ConnectionOptions? GetConnectionOptionsFor(string serverName)
 		{
 			var parms = this.GetConnectParametersFor(serverName, true);
-			return parms.ToConnectionOptions();
+			var options = parms.ToConnectionOptions();
+			if (s_forceZeroCreditFallback.Value)
+				options.AllowZeroCreditFallback = true;
+			return options;
 		}
 	}
 }

@@ -878,8 +878,8 @@ namespace Titanis.Smb2
 			}
 
 			var creditsGranted = pdu.pduhdr.creditReqResp;
-			// Treat zero-credit responses as granting one credit to keep pipe RPC enumerations progressing.
-			if (creditsGranted == 0 && this._credits == 0)
+			// Allow opt-in fallback for zero-credit responses (named pipe RPC workflows).
+			if (this.Options.AllowZeroCreditFallback && creditsGranted == 0 && this._credits == 0)
 				creditsGranted = 1;
 			this._credits += creditsGranted;
 
