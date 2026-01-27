@@ -138,7 +138,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		}
 	}
 
-	[Cmdlet(VerbsCommon.Set, "TBOSmbSecurityDescriptor")]
+	[Cmdlet(VerbsCommon.Set, "TBOSmbSecurityDescriptor", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.High)]
 	public sealed class SetTBOSmbSecurityDescriptor : SmbCmdlet
 	{
 		private const string PathParameterSet = "Path";
@@ -163,11 +163,14 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		{
 			this._cancelSource ??= new CancellationTokenSource();
 
+			var resolvedDescriptor = ResolveSecurityDescriptor(this.SecurityDescriptor);
+			var securityInfo = ResolveSecurityInfo(resolvedDescriptor, this.Sections);
+
 			foreach (var path in GetTargetPaths())
 			{
 				var uncPath = ResolveToUncPath(path, this.ParameterSetName);
-				var resolvedDescriptor = ResolveSecurityDescriptor(this.SecurityDescriptor);
-				var securityInfo = ResolveSecurityInfo(resolvedDescriptor, this.Sections);
+				if (!this.ShouldProcess(uncPath.ToString(), "Set security descriptor"))
+					continue;
 				WriteSecurityDescriptor(smb, uncPath, resolvedDescriptor, securityInfo, this._cancelSource.Token);
 			}
 		}

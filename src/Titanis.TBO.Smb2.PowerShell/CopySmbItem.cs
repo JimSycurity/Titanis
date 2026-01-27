@@ -13,9 +13,9 @@ using Winterop = Titanis.Winterop;
 
 namespace Titanis.Tbo.Smb2.PowerShell
 {
-	[Cmdlet(VerbsCommon.Copy, "TBOSmbItem")]
-	public sealed class CopyTBOSmbItem : SmbCmdlet
-	{
+[Cmdlet(VerbsCommon.Copy, "TBOSmbItem", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
+public sealed class CopyTBOSmbItem : SmbCmdlet
+{
 		[Parameter(Mandatory = true, Position = 0, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
 		public string Source { get; set; } = string.Empty;
 
@@ -84,13 +84,13 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			await CopyLocalToSmbAsync(smbClient, source.LocalPath!, destination.SmbPath!, cancellationToken).ConfigureAwait(false);
 		}
 
-		private async Task CopySmbToSmbAsync(
-			Smb2Client smbClient,
-			UncPath sourcePath,
-			DateTime? sourceTimeWarpToken,
-			UncPath destinationPath,
-			CancellationToken cancellationToken)
-		{
+	private async Task CopySmbToSmbAsync(
+		Smb2Client smbClient,
+		UncPath sourcePath,
+		DateTime? sourceTimeWarpToken,
+		UncPath destinationPath,
+		CancellationToken cancellationToken)
+	{
 			if (string.IsNullOrEmpty(sourcePath.ShareRelativePath))
 				throw new ArgumentException($"Source path must include a file name: {sourcePath}", nameof(Source));
 
@@ -107,6 +107,9 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 				if (resolvedDest.Exists && !this.Force.IsPresent)
 					throw new IOException($"The file '{destinationPath}' already exists.");
+
+				if (!ShouldProcessCopy(sourcePath.ToString(), destinationPath.ToString()))
+					return;
 
 				if (this.CreateDirectories.IsPresent)
 					await EnsureRemoteDirectoryAsync(smbClient, destinationPath.GetDirectoryPath(), cancellationToken).ConfigureAwait(false);
@@ -193,6 +196,9 @@ namespace Titanis.Tbo.Smb2.PowerShell
 				if (File.Exists(destinationPath) && !this.Force.IsPresent)
 					throw new IOException($"The file '{destinationPath}' already exists.");
 
+				if (!ShouldProcessCopy(sourcePath.ToString(), destinationPath))
+					return;
+
 				if (this.CreateDirectories.IsPresent)
 					EnsureLocalDirectory(destinationPath);
 
@@ -245,6 +251,9 @@ namespace Titanis.Tbo.Smb2.PowerShell
 
 				if (resolvedDest.Exists && !this.Force.IsPresent)
 					throw new IOException($"The file '{destinationPath}' already exists.");
+
+				if (!ShouldProcessCopy(sourcePath, destinationPath.ToString()))
+					return;
 
 				if (this.CreateDirectories.IsPresent)
 					await EnsureRemoteDirectoryAsync(smbClient, destinationPath.GetDirectoryPath(), cancellationToken).ConfigureAwait(false);
@@ -542,6 +551,11 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		{
 			Smb,
 			Local
+		}
+
+		private bool ShouldProcessCopy(string sourceDisplay, string destinationDisplay)
+		{
+			return this.ShouldProcess(destinationDisplay, $"Copy from {sourceDisplay}");
 		}
 
 		private readonly struct SnapshotPath

@@ -70,6 +70,8 @@ Get-Content tbo-reg:\HKLM\SOFTWARE\TBO\Flags
 
 ## Cmdlets
 
+Mutating cmdlets (Copy/Set/New/Remove) support `-WhatIf` and `-Confirm`.
+
 ### Connect-TBOSmbServer
 
 Initializes the TBO.Smb2 provider for a server name. Connections are opened on-demand by later cmdlets.

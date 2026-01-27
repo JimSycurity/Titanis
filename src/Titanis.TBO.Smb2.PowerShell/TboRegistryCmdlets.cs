@@ -265,23 +265,27 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		}
 	}
 
-	[Cmdlet(VerbsCommon.New, "TBORegKey")]
+	[Cmdlet(VerbsCommon.New, "TBORegKey", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 	public sealed class NewTBORegKey : TboRegCmdlet
 	{
 		[Parameter(Mandatory = true, Position = 1, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
 		[Alias("KeyPath")]
 		public string Path { get; set; } = string.Empty;
 
-		protected override void ProcessRecord(SmbProviderInfo smb, CancellationToken cancellationToken)
-		{
-			var parsedPath = ParseRegistryPath(this.Path, nameof(this.Path));
-			if (parsedPath.IsRoot)
-				throw new InvalidOperationException("Cannot create a root key.");
+	protected override void ProcessRecord(SmbProviderInfo smb, CancellationToken cancellationToken)
+	{
+		var parsedPath = ParseRegistryPath(this.Path, nameof(this.Path));
+		if (parsedPath.IsRoot)
+			throw new InvalidOperationException("Cannot create a root key.");
 
-			var subkeyPath = parsedPath.SubkeyPath!;
-			var parentPath = RegistryPath.GetParentKeyNameFromPath(subkeyPath);
-			var subkeyName = RegistryPath.GetSubkeyNameFromPath(subkeyPath);
-			var parentSpec = new RegistryPathSpec(parsedPath.RootKey, parsedPath.RootName, parentPath);
+		var target = $"{this.ServerName}\\{parsedPath.KeyPath}";
+		if (!this.ShouldProcess(target, "Create registry key"))
+			return;
+
+		var subkeyPath = parsedPath.SubkeyPath!;
+		var parentPath = RegistryPath.GetParentKeyNameFromPath(subkeyPath);
+		var subkeyName = RegistryPath.GetSubkeyNameFromPath(subkeyPath);
+		var parentSpec = new RegistryPathSpec(parsedPath.RootKey, parsedPath.RootName, parentPath);
 
 			using var session = OpenRegistrySession(smb, cancellationToken);
 			using var parentKey = OpenRegistryKey(
@@ -297,23 +301,27 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		}
 	}
 
-	[Cmdlet(VerbsCommon.Remove, "TBORegKey")]
+	[Cmdlet(VerbsCommon.Remove, "TBORegKey", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.High)]
 	public sealed class RemoveTBORegKey : TboRegCmdlet
 	{
 		[Parameter(Mandatory = true, Position = 1, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
 		[Alias("KeyPath")]
 		public string Path { get; set; } = string.Empty;
 
-		protected override void ProcessRecord(SmbProviderInfo smb, CancellationToken cancellationToken)
-		{
-			var parsedPath = ParseRegistryPath(this.Path, nameof(this.Path));
-			if (parsedPath.IsRoot)
-				throw new InvalidOperationException("Cannot remove a root key.");
+	protected override void ProcessRecord(SmbProviderInfo smb, CancellationToken cancellationToken)
+	{
+		var parsedPath = ParseRegistryPath(this.Path, nameof(this.Path));
+		if (parsedPath.IsRoot)
+			throw new InvalidOperationException("Cannot remove a root key.");
 
-			var subkeyPath = parsedPath.SubkeyPath!;
-			var parentPath = RegistryPath.GetParentKeyNameFromPath(subkeyPath);
-			var subkeyName = RegistryPath.GetSubkeyNameFromPath(subkeyPath);
-			var parentSpec = new RegistryPathSpec(parsedPath.RootKey, parsedPath.RootName, parentPath);
+		var target = $"{this.ServerName}\\{parsedPath.KeyPath}";
+		if (!this.ShouldProcess(target, "Remove registry key"))
+			return;
+
+		var subkeyPath = parsedPath.SubkeyPath!;
+		var parentPath = RegistryPath.GetParentKeyNameFromPath(subkeyPath);
+		var subkeyName = RegistryPath.GetSubkeyNameFromPath(subkeyPath);
+		var parentSpec = new RegistryPathSpec(parsedPath.RootKey, parsedPath.RootName, parentPath);
 
 			using var session = OpenRegistrySession(smb, cancellationToken);
 			using var parentKey = OpenRegistryKey(
@@ -472,7 +480,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		}
 	}
 
-	[Cmdlet(VerbsCommon.Set, "TBORegValue")]
+	[Cmdlet(VerbsCommon.Set, "TBORegValue", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.Medium)]
 	public sealed class SetTBORegValue : TboRegCmdlet
 	{
 		[Parameter(Mandatory = true, Position = 1, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
@@ -488,16 +496,20 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		[Parameter]
 		public RegistryValueType? Type { get; set; }
 
-		protected override void ProcessRecord(SmbProviderInfo smb, CancellationToken cancellationToken)
-		{
-			var parsedPath = ParseRegistryPath(this.Path, nameof(this.Path));
-			var valueType = ResolveValueType(this.Value, this.Type);
-			var data = EncodeValue(valueType, this.Value);
+	protected override void ProcessRecord(SmbProviderInfo smb, CancellationToken cancellationToken)
+	{
+		var parsedPath = ParseRegistryPath(this.Path, nameof(this.Path));
+		var valueType = ResolveValueType(this.Value, this.Type);
+		var data = EncodeValue(valueType, this.Value);
 
-			using var session = OpenRegistrySession(smb, cancellationToken);
-			using var key = OpenRegistryKey(
-				session.Client,
-				parsedPath,
+		var target = $"{this.ServerName}\\{parsedPath.KeyPath}\\{this.Name}";
+		if (!this.ShouldProcess(target, "Set registry value"))
+			return;
+
+		using var session = OpenRegistrySession(smb, cancellationToken);
+		using var key = OpenRegistryKey(
+			session.Client,
+			parsedPath,
 				RegistryAccessRights.SetValue,
 				RegistryAccessRights.EnumerateSubkeys,
 				cancellationToken);
@@ -598,7 +610,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		}
 	}
 
-	[Cmdlet(VerbsCommon.Remove, "TBORegValue")]
+	[Cmdlet(VerbsCommon.Remove, "TBORegValue", SupportsShouldProcess = true, ConfirmImpact = ConfirmImpact.High)]
 	public sealed class RemoveTBORegValue : TboRegCmdlet
 	{
 		[Parameter(Mandatory = true, Position = 1, ValueFromPipeline = true, ValueFromPipelineByPropertyName = true)]
@@ -608,13 +620,17 @@ namespace Titanis.Tbo.Smb2.PowerShell
 		[Parameter(Mandatory = true, Position = 2, ValueFromPipelineByPropertyName = true)]
 		public string? Name { get; set; }
 
-		protected override void ProcessRecord(SmbProviderInfo smb, CancellationToken cancellationToken)
-		{
-			var parsedPath = ParseRegistryPath(this.Path, nameof(this.Path));
-			using var session = OpenRegistrySession(smb, cancellationToken);
-			using var key = OpenRegistryKey(
-				session.Client,
-				parsedPath,
+	protected override void ProcessRecord(SmbProviderInfo smb, CancellationToken cancellationToken)
+	{
+		var parsedPath = ParseRegistryPath(this.Path, nameof(this.Path));
+		var target = $"{this.ServerName}\\{parsedPath.KeyPath}\\{this.Name}";
+		if (!this.ShouldProcess(target, "Remove registry value"))
+			return;
+
+		using var session = OpenRegistrySession(smb, cancellationToken);
+		using var key = OpenRegistryKey(
+			session.Client,
+			parsedPath,
 				RegistryAccessRights.SetValue,
 				RegistryAccessRights.EnumerateSubkeys,
 				cancellationToken);
