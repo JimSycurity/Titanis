@@ -68,6 +68,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			{
 				var parms = this.GetConnectParametersFor(serverName, true);
 				var port = parms?.RemotePort ?? Smb2Client.TcpPort;
+				// Winreg RPC enumeration can return zero credits intermittently; enable the fallback only for this IPC$ flow.
 				using var optionScope = EnableZeroCreditFallbackScope();
 				var session = await this.RpcSmbClient.GetSession(serverName, port, this.RpcSmbClient.DefaultSessionOptions, cancellationToken).ConfigureAwait(false);
 				share = await session.OpenTreeAsync(
