@@ -1,4 +1,5 @@
-﻿using System.Buffers.Binary;
+using System.Buffers.Binary;
+using System.ComponentModel;
 using System.Numerics;
 using System.Text;
 using System.Threading;
@@ -168,33 +169,101 @@ namespace Titanis.Msrpc.Msrrp
 
 		public async IAsyncEnumerable<RegistrySubkeyInfo> GetSubkeyNames(CancellationToken cancellationToken)
 		{
-			var keyInfo = await this.QueryInfo(cancellationToken).ConfigureAwait(false);
-
-			int index = 0;
-			Win32ErrorCode res;
-			ms_dtyp.RPC_UNICODE_STRING lpNameIn = new() { MaximumLength = (ushort)(keyInfo.MaxSubkeyLength * 2) };
-			RpcPointer<ms_dtyp.RPC_UNICODE_STRING> lpNameOut = new();
-			RpcPointer<ms_dtyp.RPC_UNICODE_STRING> lpClassIn = new(new ms_dtyp.RPC_UNICODE_STRING() { MaximumLength = (ushort)(keyInfo.MaxClassLength * 2) });
-			RpcPointer<RpcPointer<ms_dtyp.RPC_UNICODE_STRING>> lplpClassOut = new();
-			while ((res = (Win32ErrorCode)await this._owner.proxy.BaseRegEnumKey(
-					this._hkey,
-					(uint)index++,
-					lpNameIn,
-					lpNameOut,
-					lpClassIn,
-					lplpClassOut,
-					new RpcPointer<ms_dtyp.FILETIME>(),
-					cancellationToken
-					).ConfigureAwait(false)) == Win32ErrorCode.ERROR_SUCCESS)
+			RegistryKeyInfo? keyInfo;
+			try
 			{
-				var name = lpNameOut.value.AsString().TrimEnd('\0');
-				var className = lplpClassOut.value.value.AsString()?.TrimEnd('\0');
-
-				yield return new RegistrySubkeyInfo(name, className);
+				keyInfo = await this.QueryInfo(cancellationToken).ConfigureAwait(false);
+			}
+			catch (Win32Exception ex) when (ex.NativeErrorCode is (int)Win32ErrorCode.ERROR_ACCESS_DENIED)
+			{
+				keyInfo = null;
 			}
 
-			if (res is not Win32ErrorCode.ERROR_SUCCESS and not Win32ErrorCode.ERROR_NO_MORE_ITEMS)
+			if (keyInfo != null)
+			{
+				int index = 0;
+				Win32ErrorCode res;
+				ms_dtyp.RPC_UNICODE_STRING lpNameIn = new() { MaximumLength = (ushort)(keyInfo.MaxSubkeyLength * 2) };
+				RpcPointer<ms_dtyp.RPC_UNICODE_STRING> lpNameOut = new();
+				RpcPointer<ms_dtyp.RPC_UNICODE_STRING> lpClassIn = new(new ms_dtyp.RPC_UNICODE_STRING() { MaximumLength = (ushort)(keyInfo.MaxClassLength * 2) });
+				RpcPointer<RpcPointer<ms_dtyp.RPC_UNICODE_STRING>> lplpClassOut = new();
+				while ((res = (Win32ErrorCode)await this._owner.proxy.BaseRegEnumKey(
+						this._hkey,
+						(uint)index++,
+						lpNameIn,
+						lpNameOut,
+						lpClassIn,
+						lplpClassOut,
+						new RpcPointer<ms_dtyp.FILETIME>(),
+						cancellationToken
+						).ConfigureAwait(false)) == Win32ErrorCode.ERROR_SUCCESS)
+				{
+					var name = lpNameOut.value.AsString().TrimEnd('\0');
+					var className = lplpClassOut.value.value.AsString()?.TrimEnd('\0');
+
+					yield return new RegistrySubkeyInfo(name, className);
+				}
+
+				if (res is not Win32ErrorCode.ERROR_SUCCESS and not Win32ErrorCode.ERROR_NO_MORE_ITEMS)
+					res.CheckAndThrow();
+
+				yield break;
+			}
+
+			int nameChars = 256;
+			int indexFallback = 0;
+			while (true)
+			{
+				Win32ErrorCode res;
+				while (true)
+				{
+					var nameBuffer = new char[nameChars];
+					ms_dtyp.RPC_UNICODE_STRING lpNameIn = new()
+					{
+						MaximumLength = (ushort)(nameChars * 2),
+						Buffer = new RpcPointer<ArraySegment<char>>(new ArraySegment<char>(nameBuffer, 0, 0))
+					};
+					RpcPointer<ms_dtyp.RPC_UNICODE_STRING> lpNameOut = new();
+					RpcPointer<ms_dtyp.RPC_UNICODE_STRING> lpClassIn = new(new ms_dtyp.RPC_UNICODE_STRING());
+					RpcPointer<RpcPointer<ms_dtyp.RPC_UNICODE_STRING>> lplpClassOut = new();
+
+					res = (Win32ErrorCode)await this._owner.proxy.BaseRegEnumKey(
+						this._hkey,
+						(uint)indexFallback,
+						lpNameIn,
+						lpNameOut,
+						lpClassIn,
+						lplpClassOut,
+						new RpcPointer<ms_dtyp.FILETIME>(),
+						cancellationToken
+						).ConfigureAwait(false);
+
+					if (res == Win32ErrorCode.ERROR_MORE_DATA)
+					{
+						nameChars *= 2;
+						continue;
+					}
+
+					if (res == Win32ErrorCode.ERROR_SUCCESS)
+					{
+						var name = lpNameOut.value.AsString().TrimEnd('\0');
+						yield return new RegistrySubkeyInfo(name, null);
+					}
+
+					break;
+				}
+
+				if (res == Win32ErrorCode.ERROR_SUCCESS)
+				{
+					indexFallback++;
+					continue;
+				}
+
+				if (res == Win32ErrorCode.ERROR_NO_MORE_ITEMS)
+					yield break;
+
 				res.CheckAndThrow();
+			}
 		}
 
 		public IAsyncEnumerable<RegistryValueInfo> GetValueNames(CancellationToken cancellationToken) => this.GetValues(false, cancellationToken);

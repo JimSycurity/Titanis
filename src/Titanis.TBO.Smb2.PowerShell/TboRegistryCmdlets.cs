@@ -276,7 +276,7 @@ namespace Titanis.Tbo.Smb2.PowerShell
 			}
 			catch (Exception ex)
 			{
-				smb.LogException("Get-TBORegSession failed to enumerate HKEY_USERS", ex);
+				smb.LogException("Get-TBORegSessions failed to enumerate HKEY_USERS", ex);
 				throw;
 			}
 
