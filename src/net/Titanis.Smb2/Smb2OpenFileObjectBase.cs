@@ -566,6 +566,10 @@ FileInfoClass.NetworkOpenInfo), DefaultMaxResponseSize)
 			Smb2CloseOptions options,
 			CancellationToken cancellationToken)
 		{
+			// Avoid leaking SMB handles by making close idempotent and tracking the closed state.
+			if (this.IsClosed)
+				return this._info.attrs;
+
 			Smb2CloseRequest req = new Smb2CloseRequest
 			{
 				body = new Smb2CloseRequestBody
@@ -578,6 +582,7 @@ FileInfoClass.NetworkOpenInfo), DefaultMaxResponseSize)
 			var resp = (Smb2CloseResponse)await this.Tree.SendSyncPduAsync(req, cancellationToken).ConfigureAwait(false);
 
 			this.Tree.OnFileClosed(this);
+			this.IsClosed = true;
 
 			return resp.body.attrs;
 		}
@@ -597,8 +602,9 @@ FileInfoClass.NetworkOpenInfo), DefaultMaxResponseSize)
 			{
 				if (disposing)
 				{
-					if (!this.IsClosed && this.Handle != Smb2FileHandle.Invalid)
-						this.CloseAsync(CancellationToken.None);
+					// Ensure Dispose closes SMB handles to prevent server-side open-file accumulation.
+					if (this.Handle != Smb2FileHandle.Invalid && !this.IsClosed)
+						this.CloseAsync(CancellationToken.None).GetAwaiter().GetResult();
 				}
 
 				_isDisposed = true;
