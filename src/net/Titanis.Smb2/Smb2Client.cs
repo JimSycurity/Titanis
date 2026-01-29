@@ -369,7 +369,7 @@ namespace Titanis.Smb2
 		#endregion
 
 		#region Disconnect
-		public async Task DisconnectServerAsync(string serverName, int? port = null)
+		public async Task DisconnectServerAsync(string serverName, int? port = null, bool force = false)
 		{
 			if (string.IsNullOrWhiteSpace(serverName))
 				throw new ArgumentException("Server name must be provided.", nameof(serverName));
@@ -384,14 +384,24 @@ namespace Titanis.Smb2
 			var shareKeys = this._shares.Keys.Where(key => Matches(key.SessionKey.ConnectionKey)).ToList();
 			foreach (var key in shareKeys)
 			{
-				if (this._shares.Remove(key, out var share))
+				if (!this._shares.Remove(key, out var share))
+					continue;
+
+				if (force)
+					await SafeDisposeAsync(share).ConfigureAwait(false);
+				else
 					await share.DisposeAsync().ConfigureAwait(false);
 			}
 
 			var sessionKeys = this._sessions.Keys.Where(key => Matches(key.ConnectionKey)).ToList();
 			foreach (var key in sessionKeys)
 			{
-				if (this._sessions.Remove(key, out var session))
+				if (!this._sessions.Remove(key, out var session))
+					continue;
+
+				if (force)
+					await SafeDisposeAsync(session).ConfigureAwait(false);
+				else
 					await session.DisposeAsync().ConfigureAwait(false);
 			}
 
@@ -402,26 +412,57 @@ namespace Titanis.Smb2
 					continue;
 
 				foreach (var conn in connGroup.connections)
-					await conn.DisposeAsync().ConfigureAwait(false);
+				{
+					if (force)
+						await SafeDisposeAsync(conn).ConfigureAwait(false);
+					else
+						await conn.DisposeAsync().ConfigureAwait(false);
+				}
 			}
 		}
 
-		public async Task DisconnectAllAsync()
+		public async Task DisconnectAllAsync(bool force = false)
 		{
 			foreach (var share in this._shares.Values)
-				await share.DisposeAsync().ConfigureAwait(false);
+			{
+				if (force)
+					await SafeDisposeAsync(share).ConfigureAwait(false);
+				else
+					await share.DisposeAsync().ConfigureAwait(false);
+			}
 			this._shares.Clear();
 
 			foreach (var session in this._sessions.Values)
-				await session.DisposeAsync().ConfigureAwait(false);
+			{
+				if (force)
+					await SafeDisposeAsync(session).ConfigureAwait(false);
+				else
+					await session.DisposeAsync().ConfigureAwait(false);
+			}
 			this._sessions.Clear();
 
 			foreach (var connGroup in this._connections.Values)
 			{
 				foreach (var conn in connGroup.connections)
-					await conn.DisposeAsync().ConfigureAwait(false);
+				{
+					if (force)
+						await SafeDisposeAsync(conn).ConfigureAwait(false);
+					else
+						await conn.DisposeAsync().ConfigureAwait(false);
+				}
 			}
 			this._connections.Clear();
+		}
+
+		private static async ValueTask SafeDisposeAsync(IAsyncDisposable disposable)
+		{
+			try
+			{
+				await disposable.DisposeAsync().ConfigureAwait(false);
+			}
+			catch
+			{
+			}
 		}
 		#endregion
 
