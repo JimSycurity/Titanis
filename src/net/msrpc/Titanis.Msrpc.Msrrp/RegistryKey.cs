@@ -13,6 +13,9 @@ namespace Titanis.Msrpc.Msrrp
 
 	public partial class RegistryKey
 	{
+		// Exposed so TBO can read registry key security descriptors over MS-RRP.
+		private const int DefaultSecurityDescriptorBufferSize = 8192;
+
 		internal RegistryKey(string name, string path, RpcContextHandle hkey, RemoteRegistryClient owner)
 		{
 			this._hkey = hkey;
@@ -114,6 +117,76 @@ namespace Titanis.Msrpc.Msrrp
 				SecurityDescriptorLength = (int)lpcbSecurityDescriptor.value,
 				LastWriteTime = lpftLastWriteTime.value.ToDateTime()
 			};
+		}
+
+		public async Task<byte[]> QuerySecurity(SecurityInfo info, CancellationToken cancellationToken)
+		{
+			if (info == SecurityInfo.None)
+				throw new ArgumentException("Security info must include at least one flag.", nameof(info));
+
+			int bufferSize = DefaultSecurityDescriptorBufferSize;
+			try
+			{
+				var keyInfo = await this.QueryInfo(includeClass: false, cancellationToken).ConfigureAwait(false);
+				if (keyInfo.SecurityDescriptorLength > 0)
+					bufferSize = Math.Max(bufferSize, keyInfo.SecurityDescriptorLength);
+			}
+			catch (Win32Exception ex) when (ex.NativeErrorCode is (int)Win32ErrorCode.ERROR_ACCESS_DENIED)
+			{
+				// Fallback to the default buffer size when key metadata is access-restricted.
+			}
+
+			for (int attempt = 0; attempt < 3; attempt++)
+			{
+				var buffer = new byte[bufferSize];
+				var input = new ms_rrp.RPC_SECURITY_DESCRIPTOR
+				{
+					lpSecurityDescriptor = new RpcPointer<ArraySegment<byte>>(new ArraySegment<byte>(buffer, 0, buffer.Length)),
+					cbInSecurityDescriptor = (uint)bufferSize,
+					cbOutSecurityDescriptor = 0
+				};
+				var output = new RpcPointer<ms_rrp.RPC_SECURITY_DESCRIPTOR>();
+
+				var res = (Win32ErrorCode)await this._owner.proxy.BaseRegGetKeySecurity(
+					this._hkey,
+					(uint)info,
+					input,
+					output,
+					cancellationToken).ConfigureAwait(false);
+
+				if (res == Win32ErrorCode.ERROR_INSUFFICIENT_BUFFER || res == Win32ErrorCode.ERROR_MORE_DATA)
+				{
+					int needed = (int)output.value.cbOutSecurityDescriptor;
+					if (needed <= bufferSize)
+						needed = bufferSize * 2;
+					bufferSize = needed;
+					continue;
+				}
+
+				res.CheckAndThrow();
+				return ExtractSecurityDescriptor(output.value);
+			}
+
+			throw new Win32Exception((int)Win32ErrorCode.ERROR_INSUFFICIENT_BUFFER);
+		}
+
+		private static byte[] ExtractSecurityDescriptor(ms_rrp.RPC_SECURITY_DESCRIPTOR descriptor)
+		{
+			if (descriptor.lpSecurityDescriptor == null)
+				return Array.Empty<byte>();
+
+			var segment = descriptor.lpSecurityDescriptor.value;
+			var data = segment.Array;
+			if (data == null)
+				return Array.Empty<byte>();
+
+			int length = (int)descriptor.cbOutSecurityDescriptor;
+			if (length <= 0 || length > segment.Count)
+				length = segment.Count;
+
+			var result = new byte[length];
+			Array.Copy(data, segment.Offset, result, 0, length);
+			return result;
 		}
 
 		public async Task SaveKey(string fileName, RegistrySaveFormat format, CancellationToken cancellationToken)
