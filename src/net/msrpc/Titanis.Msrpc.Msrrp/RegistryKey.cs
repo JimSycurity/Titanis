@@ -170,6 +170,30 @@ namespace Titanis.Msrpc.Msrrp
 			throw new Win32Exception((int)Win32ErrorCode.ERROR_INSUFFICIENT_BUFFER);
 		}
 
+		// Added so TBO can set registry key security descriptors over MS-RRP; keep minimal to allow future Titanis SD handling changes.
+		public async Task SetSecurity(SecurityInfo info, byte[] securityDescriptor, CancellationToken cancellationToken)
+		{
+			if (info == SecurityInfo.None)
+				throw new ArgumentException("Security info must include at least one flag.", nameof(info));
+			if (securityDescriptor == null || securityDescriptor.Length == 0)
+				throw new ArgumentException("Security descriptor must be provided.", nameof(securityDescriptor));
+
+			var input = new ms_rrp.RPC_SECURITY_DESCRIPTOR
+			{
+				lpSecurityDescriptor = new RpcPointer<ArraySegment<byte>>(
+					new ArraySegment<byte>(securityDescriptor, 0, securityDescriptor.Length)),
+				cbInSecurityDescriptor = (uint)securityDescriptor.Length,
+				cbOutSecurityDescriptor = 0
+			};
+
+			var res = (Win32ErrorCode)await this._owner.proxy.BaseRegSetKeySecurity(
+				this._hkey,
+				(uint)info,
+				input,
+				cancellationToken).ConfigureAwait(false);
+			res.CheckAndThrow();
+		}
+
 		private static byte[] ExtractSecurityDescriptor(ms_rrp.RPC_SECURITY_DESCRIPTOR descriptor)
 		{
 			if (descriptor.lpSecurityDescriptor == null)
