@@ -139,7 +139,6 @@ namespace Titanis.Msrpc.Msrrp
 			for (int attempt = 0; attempt < 3; attempt++)
 			{
 				var buffer = new byte[bufferSize];
-				// BaseRegGetKeySecurity uses an in/out RPC_SECURITY_DESCRIPTOR pointer; keep a single struct to avoid bad stub data.
 				var input = new ms_rrp.RPC_SECURITY_DESCRIPTOR
 				{
 					// BaseRegGetKeySecurity expects an input buffer; match cbIn/cbOut to the transmitted length.
@@ -147,17 +146,19 @@ namespace Titanis.Msrpc.Msrrp
 					cbInSecurityDescriptor = (uint)bufferSize,
 					cbOutSecurityDescriptor = (uint)bufferSize
 				};
-				var inOut = new RpcPointer<ms_rrp.RPC_SECURITY_DESCRIPTOR>(input);
+
+				var output = new RpcPointer<ms_rrp.RPC_SECURITY_DESCRIPTOR>();
 
 				var res = (Win32ErrorCode)await this._owner.proxy.BaseRegGetKeySecurity(
 					this._hkey,
 					(uint)info,
-					inOut,
+					input,
+					output,
 					cancellationToken).ConfigureAwait(false);
 
 				if (res == Win32ErrorCode.ERROR_INSUFFICIENT_BUFFER || res == Win32ErrorCode.ERROR_MORE_DATA)
 				{
-					int needed = (int)inOut.value.cbOutSecurityDescriptor;
+					int needed = (int)output.value.cbOutSecurityDescriptor;
 					if (needed <= bufferSize)
 						needed = bufferSize * 2;
 					bufferSize = needed;
@@ -165,7 +166,7 @@ namespace Titanis.Msrpc.Msrrp
 				}
 
 				res.CheckAndThrow();
-				return ExtractSecurityDescriptor(inOut.value);
+				return ExtractSecurityDescriptor(output.value);
 			}
 
 			throw new Win32Exception((int)Win32ErrorCode.ERROR_INSUFFICIENT_BUFFER);
