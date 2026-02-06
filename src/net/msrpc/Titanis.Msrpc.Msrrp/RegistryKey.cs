@@ -139,24 +139,25 @@ namespace Titanis.Msrpc.Msrrp
 			for (int attempt = 0; attempt < 3; attempt++)
 			{
 				var buffer = new byte[bufferSize];
+				// BaseRegGetKeySecurity uses an in/out RPC_SECURITY_DESCRIPTOR pointer; keep a single struct to avoid bad stub data.
 				var input = new ms_rrp.RPC_SECURITY_DESCRIPTOR
 				{
+					// BaseRegGetKeySecurity expects an input buffer; match cbIn/cbOut to the transmitted length.
 					lpSecurityDescriptor = new RpcPointer<ArraySegment<byte>>(new ArraySegment<byte>(buffer, 0, buffer.Length)),
 					cbInSecurityDescriptor = (uint)bufferSize,
-					cbOutSecurityDescriptor = 0
+					cbOutSecurityDescriptor = (uint)bufferSize
 				};
-				var output = new RpcPointer<ms_rrp.RPC_SECURITY_DESCRIPTOR>();
+				var inOut = new RpcPointer<ms_rrp.RPC_SECURITY_DESCRIPTOR>(input);
 
 				var res = (Win32ErrorCode)await this._owner.proxy.BaseRegGetKeySecurity(
 					this._hkey,
 					(uint)info,
-					input,
-					output,
+					inOut,
 					cancellationToken).ConfigureAwait(false);
 
 				if (res == Win32ErrorCode.ERROR_INSUFFICIENT_BUFFER || res == Win32ErrorCode.ERROR_MORE_DATA)
 				{
-					int needed = (int)output.value.cbOutSecurityDescriptor;
+					int needed = (int)inOut.value.cbOutSecurityDescriptor;
 					if (needed <= bufferSize)
 						needed = bufferSize * 2;
 					bufferSize = needed;
@@ -164,7 +165,7 @@ namespace Titanis.Msrpc.Msrrp
 				}
 
 				res.CheckAndThrow();
-				return ExtractSecurityDescriptor(output.value);
+				return ExtractSecurityDescriptor(inOut.value);
 			}
 
 			throw new Win32Exception((int)Win32ErrorCode.ERROR_INSUFFICIENT_BUFFER);
@@ -183,7 +184,8 @@ namespace Titanis.Msrpc.Msrrp
 				lpSecurityDescriptor = new RpcPointer<ArraySegment<byte>>(
 					new ArraySegment<byte>(securityDescriptor, 0, securityDescriptor.Length)),
 				cbInSecurityDescriptor = (uint)securityDescriptor.Length,
-				cbOutSecurityDescriptor = 0
+				// Keep cbOut aligned with the transmitted length for stub correlation.
+				cbOutSecurityDescriptor = (uint)securityDescriptor.Length
 			};
 
 			var res = (Win32ErrorCode)await this._owner.proxy.BaseRegSetKeySecurity(

@@ -179,7 +179,8 @@ namespace ms_rrp
 		[GeneratedCodeAttribute("Animus IDL Compiler", "0.9.8")]
 		Task<int> BaseRegFlushKey(RpcContextHandle hKey, CancellationToken cancellationToken);
 		[GeneratedCodeAttribute("Animus IDL Compiler", "0.9.8")]
-		Task<int> BaseRegGetKeySecurity(RpcContextHandle hKey, uint SecurityInformation, RPC_SECURITY_DESCRIPTOR pRpcSecurityDescriptorIn, RpcPointer<RPC_SECURITY_DESCRIPTOR> pRpcSecurityDescriptorOut, CancellationToken cancellationToken);
+		// NOTE: BaseRegGetKeySecurity uses a single [in,out] RPC_SECURITY_DESCRIPTOR pointer per MS-RRP; split in/out stubs trigger RPC_X_BAD_STUB_DATA.
+		Task<int> BaseRegGetKeySecurity(RpcContextHandle hKey, uint SecurityInformation, RpcPointer<RPC_SECURITY_DESCRIPTOR> pRpcSecurityDescriptor, CancellationToken cancellationToken);
 		[GeneratedCodeAttribute("Animus IDL Compiler", "0.9.8")]
 		Task<int> BaseRegLoadKey(RpcContextHandle hKey, ms_dtyp.RPC_UNICODE_STRING lpSubKey, ms_dtyp.RPC_UNICODE_STRING lpFile, CancellationToken cancellationToken);
 		[GeneratedCodeAttribute("Animus IDL Compiler", "0.9.8")]
@@ -541,17 +542,26 @@ namespace ms_rrp
 		}
 
 		[GeneratedCodeAttribute("Animus IDL Compiler", "0.9.8")]
-		public async Task<int> BaseRegGetKeySecurity(RpcContextHandle hKey, uint SecurityInformation, RPC_SECURITY_DESCRIPTOR pRpcSecurityDescriptorIn, RpcPointer<RPC_SECURITY_DESCRIPTOR> pRpcSecurityDescriptorOut, CancellationToken cancellationToken)
+		public async Task<int> BaseRegGetKeySecurity(RpcContextHandle hKey, uint SecurityInformation, RpcPointer<RPC_SECURITY_DESCRIPTOR> pRpcSecurityDescriptor, CancellationToken cancellationToken)
 		{
 			Titanis.DceRpc.Client.IRpcRequestBuilder req = this.CreateRequest(12);
 			IRpcEncoder encoder = req.StubData;
 			encoder.WriteContextHandle(hKey);
 			encoder.WriteValue(SecurityInformation);
-			encoder.WriteFixedStruct(pRpcSecurityDescriptorIn, NdrAlignment.NativePtr);
-			encoder.WriteStructDeferral(pRpcSecurityDescriptorIn);
+			encoder.WritePointer(pRpcSecurityDescriptor);
+			if (pRpcSecurityDescriptor is not null)
+			{
+				encoder.WriteFixedStruct(pRpcSecurityDescriptor.value, NdrAlignment.NativePtr);
+				encoder.WriteStructDeferral(pRpcSecurityDescriptor.value);
+			}
+
 			IRpcDecoder decoder = await this.SendRequestAsync(req, cancellationToken);
-			pRpcSecurityDescriptorOut.value = decoder.ReadFixedStruct<RPC_SECURITY_DESCRIPTOR>(NdrAlignment.NativePtr);
-			decoder.ReadStructDeferral<RPC_SECURITY_DESCRIPTOR>(ref pRpcSecurityDescriptorOut.value);
+			pRpcSecurityDescriptor = decoder.ReadOutUniquePointer<RPC_SECURITY_DESCRIPTOR>(pRpcSecurityDescriptor);
+			if (pRpcSecurityDescriptor is not null)
+			{
+				pRpcSecurityDescriptor.value = decoder.ReadFixedStruct<RPC_SECURITY_DESCRIPTOR>(NdrAlignment.NativePtr);
+				decoder.ReadStructDeferral<RPC_SECURITY_DESCRIPTOR>(ref pRpcSecurityDescriptor.value);
+			}
 			int retval;
 			retval = decoder.ReadInt32();
 			return retval;
@@ -1412,16 +1422,24 @@ namespace ms_rrp
 		{
 			RpcContextHandle hKey;
 			uint SecurityInformation;
-			RPC_SECURITY_DESCRIPTOR pRpcSecurityDescriptorIn;
-			RpcPointer<RPC_SECURITY_DESCRIPTOR> pRpcSecurityDescriptorOut = new RpcPointer<RPC_SECURITY_DESCRIPTOR>();
+			RpcPointer<RPC_SECURITY_DESCRIPTOR> pRpcSecurityDescriptor;
 			hKey = decoder.ReadContextHandle();
 			SecurityInformation = decoder.ReadUInt32();
-			pRpcSecurityDescriptorIn = decoder.ReadFixedStruct<RPC_SECURITY_DESCRIPTOR>(NdrAlignment.NativePtr);
-			decoder.ReadStructDeferral<RPC_SECURITY_DESCRIPTOR>(ref pRpcSecurityDescriptorIn);
-			var invokeTask = this._obj.BaseRegGetKeySecurity(hKey, SecurityInformation, pRpcSecurityDescriptorIn, pRpcSecurityDescriptorOut, cancellationToken);
+			pRpcSecurityDescriptor = decoder.ReadUniquePointer<RPC_SECURITY_DESCRIPTOR>();
+			if (pRpcSecurityDescriptor is not null)
+			{
+				pRpcSecurityDescriptor.value = decoder.ReadFixedStruct<RPC_SECURITY_DESCRIPTOR>(NdrAlignment.NativePtr);
+				decoder.ReadStructDeferral<RPC_SECURITY_DESCRIPTOR>(ref pRpcSecurityDescriptor.value);
+			}
+
+			var invokeTask = this._obj.BaseRegGetKeySecurity(hKey, SecurityInformation, pRpcSecurityDescriptor, cancellationToken);
 			var retval = await invokeTask;
-			encoder.WriteFixedStruct(pRpcSecurityDescriptorOut.value, NdrAlignment.NativePtr);
-			encoder.WriteStructDeferral(pRpcSecurityDescriptorOut.value);
+			encoder.WritePointer(pRpcSecurityDescriptor);
+			if (pRpcSecurityDescriptor is not null)
+			{
+				encoder.WriteFixedStruct(pRpcSecurityDescriptor.value, NdrAlignment.NativePtr);
+				encoder.WriteStructDeferral(pRpcSecurityDescriptor.value);
+			}
 			encoder.WriteValue(retval);
 		}
 
