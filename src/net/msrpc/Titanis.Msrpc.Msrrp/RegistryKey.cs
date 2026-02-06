@@ -141,10 +141,11 @@ namespace Titanis.Msrpc.Msrrp
 				var buffer = new byte[bufferSize];
 				var input = new ms_rrp.RPC_SECURITY_DESCRIPTOR
 				{
-					// BaseRegGetKeySecurity expects an input buffer; match cbIn/cbOut to the transmitted length.
-					lpSecurityDescriptor = new RpcPointer<ArraySegment<byte>>(new ArraySegment<byte>(buffer, 0, buffer.Length)),
+					// The server treats lpSecurityDescriptor as an output buffer. We send a conformant-varying array header
+					// with max_count=buffer.Length but count=0 (no elements), which avoids transmitting a large zero-filled buffer.
+					lpSecurityDescriptor = new RpcPointer<ArraySegment<byte>>(new ArraySegment<byte>(buffer, 0, 0)),
 					cbInSecurityDescriptor = (uint)bufferSize,
-					cbOutSecurityDescriptor = (uint)bufferSize
+					cbOutSecurityDescriptor = 0
 				};
 
 				var output = new RpcPointer<ms_rrp.RPC_SECURITY_DESCRIPTOR>();
@@ -155,6 +156,20 @@ namespace Titanis.Msrpc.Msrrp
 					input,
 					output,
 					cancellationToken).ConfigureAwait(false);
+
+				// Some servers appear to validate the embedded array lengths strictly; fall back to the previous behavior.
+				if (res == Win32ErrorCode.ERROR_INVALID_PARAMETER && input.lpSecurityDescriptor is not null && input.lpSecurityDescriptor.value.Count == 0)
+				{
+					input.lpSecurityDescriptor.value = new ArraySegment<byte>(buffer, 0, buffer.Length);
+					input.cbOutSecurityDescriptor = (uint)bufferSize;
+
+					res = (Win32ErrorCode)await this._owner.proxy.BaseRegGetKeySecurity(
+						this._hkey,
+						(uint)info,
+						input,
+						output,
+						cancellationToken).ConfigureAwait(false);
+				}
 
 				if (res == Win32ErrorCode.ERROR_INSUFFICIENT_BUFFER || res == Win32ErrorCode.ERROR_MORE_DATA)
 				{
