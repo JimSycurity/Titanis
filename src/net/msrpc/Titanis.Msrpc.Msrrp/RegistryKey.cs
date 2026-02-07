@@ -195,22 +195,26 @@ namespace Titanis.Msrpc.Msrrp
 			if (securityDescriptor == null || securityDescriptor.Length == 0)
 				throw new ArgumentException("Security descriptor must be provided.", nameof(securityDescriptor));
 
-			static ms_rrp.RPC_SECURITY_DESCRIPTOR BuildInput(byte[] sd, uint cbOut)
+			static ms_rrp.RPC_SECURITY_DESCRIPTOR BuildInput(byte[] sd)
 			{
+				// [MS-RRP] RPC_SECURITY_DESCRIPTOR uses a conformant-varying byte array. The server RPC runtime correlates
+				// cbIn/cbOut with the transmitted array header. If these are inconsistent, the call can fail before reaching
+				// winreg with RPC_X_BAD_STUB_DATA ("The stub received bad data", 0x000006F7).
+				//
+				// For set operations, the security descriptor is pure input: set both to the payload length.
+				uint length = (uint)sd.Length;
 				return new ms_rrp.RPC_SECURITY_DESCRIPTOR
 				{
 					lpSecurityDescriptor = new RpcPointer<ArraySegment<byte>>(
 						new ArraySegment<byte>(sd, 0, sd.Length)),
-					cbInSecurityDescriptor = (uint)sd.Length,
-					// BaseRegSetKeySecurity treats the security descriptor as input; cbOut is not used.
-					// Some servers validate this value strictly and reject non-zero cbOut.
-					cbOutSecurityDescriptor = cbOut
+					cbInSecurityDescriptor = length,
+					cbOutSecurityDescriptor = length
 				};
 			}
 
-			async Task<Win32ErrorCode> TrySetSecurity(SecurityInfo flags, uint cbOut)
+			async Task<Win32ErrorCode> TrySetSecurity(SecurityInfo flags)
 			{
-				var input = BuildInput(securityDescriptor, cbOut);
+				var input = BuildInput(securityDescriptor);
 				return (Win32ErrorCode)await this._owner.proxy.BaseRegSetKeySecurity(
 					this._hkey,
 					(uint)flags,
@@ -218,19 +222,14 @@ namespace Titanis.Msrpc.Msrrp
 					cancellationToken).ConfigureAwait(false);
 			}
 
-			// Prefer cbOut=0 for set operations. Fall back to cbOut=cbIn if a server rejects the input marshalling.
-			var res = await TrySetSecurity(info, cbOut: 0).ConfigureAwait(false);
-			if (res == Win32ErrorCode.ERROR_INVALID_PARAMETER)
-				res = await TrySetSecurity(info, cbOut: (uint)securityDescriptor.Length).ConfigureAwait(false);
+			var res = await TrySetSecurity(info).ConfigureAwait(false);
 
 			// Some servers require BACKUP_SECURITY_INFORMATION to honor SeRestorePrivilege for SetKeySecurity.
 			// Retry once with BACKUP_SECURITY_INFORMATION if access is denied and the caller didn't request it.
 			if (res == Win32ErrorCode.ERROR_ACCESS_DENIED && !info.HasFlag(SecurityInfo.Backup))
 			{
 				var backupInfo = info | SecurityInfo.Backup;
-				res = await TrySetSecurity(backupInfo, cbOut: 0).ConfigureAwait(false);
-				if (res == Win32ErrorCode.ERROR_INVALID_PARAMETER)
-					res = await TrySetSecurity(backupInfo, cbOut: (uint)securityDescriptor.Length).ConfigureAwait(false);
+				res = await TrySetSecurity(backupInfo).ConfigureAwait(false);
 			}
 
 			res.CheckAndThrow();
