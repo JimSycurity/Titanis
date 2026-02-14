@@ -223,15 +223,6 @@ namespace Titanis.Msrpc.Msrrp
 			}
 
 			var res = await TrySetSecurity(info).ConfigureAwait(false);
-
-			// Some servers require BACKUP_SECURITY_INFORMATION to honor SeRestorePrivilege for SetKeySecurity.
-			// Retry once with BACKUP_SECURITY_INFORMATION if access is denied and the caller didn't request it.
-			if (res == Win32ErrorCode.ERROR_ACCESS_DENIED && !info.HasFlag(SecurityInfo.Backup))
-			{
-				var backupInfo = info | SecurityInfo.Backup;
-				res = await TrySetSecurity(backupInfo).ConfigureAwait(false);
-			}
-
 			res.CheckAndThrow();
 		}
 

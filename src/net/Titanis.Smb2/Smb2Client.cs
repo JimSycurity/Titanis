@@ -369,7 +369,11 @@ namespace Titanis.Smb2
 		#endregion
 
 		#region Disconnect
-		public async Task DisconnectServerAsync(string serverName, int? port = null, bool force = false)
+		// Backward-compatible overload retained for callers compiled against older signatures.
+		public Task DisconnectServerAsync(string serverName, int? port = null)
+			=> this.DisconnectServerAsync(serverName, port, force: false);
+
+		public async Task DisconnectServerAsync(string serverName, int? port, bool force)
 		{
 			if (string.IsNullOrWhiteSpace(serverName))
 				throw new ArgumentException("Server name must be provided.", nameof(serverName));
@@ -421,7 +425,11 @@ namespace Titanis.Smb2
 			}
 		}
 
-		public async Task DisconnectAllAsync(bool force = false)
+		// Backward-compatible overload retained for callers compiled against older signatures.
+		public Task DisconnectAllAsync()
+			=> this.DisconnectAllAsync(force: false);
+
+		public async Task DisconnectAllAsync(bool force)
 		{
 			foreach (var share in this._shares.Values)
 			{

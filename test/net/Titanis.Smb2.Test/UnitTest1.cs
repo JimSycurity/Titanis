@@ -1,5 +1,6 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
+using Titanis;
 
 namespace Titanis.Smb2.Test
 {
@@ -11,68 +12,62 @@ namespace Titanis.Smb2.Test
 		{
 			string path = @"\\server";
 
-			var actual = Smb2UncPathInfo.Parse(path);
-			Assert.AreEqual(path, actual.OriginalString);
+			var actual = UncPath.Parse(path);
 			Assert.AreEqual(path, actual.ToString());
 			Assert.AreEqual("server", actual.ServerName);
-			Assert.AreEqual(null, actual.ShareName);
-			Assert.AreEqual(null, actual.Path);
+			Assert.AreEqual(string.Empty, actual.ShareName);
+			Assert.AreEqual(string.Empty, actual.ShareRelativePath);
 		}
 		[TestMethod]
-		[ExpectedException(typeof(ArgumentException))]
 		public void TestUncPath_Invalid()
 		{
 			string path = @"server";
 
-			var actual = Smb2UncPathInfo.Parse(path);
+			_ = Assert.ThrowsExactly<ArgumentException>(() => UncPath.Parse(path));
 		}
 		[TestMethod]
 		public void TestUncPath_ServerShareName()
 		{
 			string path = @"\\server\share";
 
-			var actual = Smb2UncPathInfo.Parse(path);
-			Assert.AreEqual(path, actual.OriginalString);
+			var actual = UncPath.Parse(path);
 			Assert.AreEqual(path, actual.ToString());
 			Assert.AreEqual("server", actual.ServerName);
 			Assert.AreEqual("share", actual.ShareName);
-			Assert.AreEqual(null, actual.Path);
+			Assert.AreEqual(string.Empty, actual.ShareRelativePath);
 		}
 		[TestMethod]
 		public void TestUncPath_ServerShareNamePath()
 		{
 			string path = @"\\server\share\path\file";
 
-			var actual = Smb2UncPathInfo.Parse(path);
-			Assert.AreEqual(path, actual.OriginalString);
+			var actual = UncPath.Parse(path);
 			Assert.AreEqual(path, actual.ToString());
 			Assert.AreEqual("server", actual.ServerName);
 			Assert.AreEqual("share", actual.ShareName);
-			Assert.AreEqual(@"path\file", actual.Path);
+			Assert.AreEqual(@"path\file", actual.ShareRelativePath);
 		}
 		[TestMethod]
 		public void TestUncPath_ServerShareNamePath_AltSeparator()
 		{
 			string path = @"//server/share/path/file";
 
-			var actual = Smb2UncPathInfo.Parse(path);
-			Assert.AreEqual(path, actual.OriginalString);
-			Assert.AreEqual(path, actual.ToString());
+			var actual = UncPath.Parse(path);
+			Assert.AreEqual(@"\\server\share\path\file", actual.ToString());
 			Assert.AreEqual("server", actual.ServerName);
 			Assert.AreEqual("share", actual.ShareName);
-			Assert.AreEqual(@"path\file", actual.Path);
+			Assert.AreEqual(@"path\file", actual.ShareRelativePath);
 		}
 		[TestMethod]
 		public void TestUncPath_ServerShareNamePath_MixedSeparator()
 		{
 			string path = @"//server\share/path\file";
 
-			var actual = Smb2UncPathInfo.Parse(path);
-			Assert.AreEqual(path, actual.OriginalString);
-			Assert.AreEqual(path, actual.ToString());
+			var actual = UncPath.Parse(path);
+			Assert.AreEqual(@"\\server\share\path\file", actual.ToString());
 			Assert.AreEqual("server", actual.ServerName);
 			Assert.AreEqual("share", actual.ShareName);
-			Assert.AreEqual(@"path\file", actual.Path);
+			Assert.AreEqual(@"path\file", actual.ShareRelativePath);
 		}
 	}
 }
