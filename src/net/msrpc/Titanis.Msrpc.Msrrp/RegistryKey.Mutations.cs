@@ -3,6 +3,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Titanis.DceRpc;
 using Titanis.Winterop;
+using Titanis.Winterop.Registry;
+using Titanis.Winterop.Security;
 
 namespace Titanis.Msrpc.Msrrp
 {
