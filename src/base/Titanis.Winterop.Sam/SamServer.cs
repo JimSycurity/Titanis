@@ -52,12 +52,12 @@ namespace Titanis.Winterop.SamServer
 			this._log = log;
 		}
 
-		public static async Task<SamRegistryServer> Open(byte[] systemKey, IRegistryStore registry, RegistryKeyOptions options, ILog? log, CancellationToken cancellationToken)
+		public static Task<SamRegistryServer> Open(byte[] systemKey, IRegistryStore registry, RegistryKeyOptions options, ILog? log, CancellationToken cancellationToken)
 		{
             ArgumentNullException.ThrowIfNull(systemKey);
             ArgumentNullException.ThrowIfNull(registry);
 
-            return new SamRegistryServer(systemKey, registry, options, log);
+            return Task.FromResult(new SamRegistryServer(systemKey, registry, options, log));
 		}
 
 		public async Task<SamUserHash[]> DumpUserHashes(CancellationToken cancellationToken)
