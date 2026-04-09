@@ -248,73 +248,119 @@ namespace Titanis.Smb2
 			CancellationToken cancellationToken
 			)
 		{
-			var connGroup = await this.GetConnectionAsync(serverName, port, cancellationToken).ConfigureAwait(false);
-			var conn0 = connGroup.SelectConnection();
-
-			AuthClientContext CreateAuthContext()
+			// TBO: Track the connection key + group so we can evict on auth failure.
+			// GetConnectionAsync adds the connGroup to _connections *before* SESSION_SETUP runs
+			// (Smb2Client.cs ConnectToAsync line ~187). Without eviction, any failure in the auth
+			// loop below leaves a half-built connection cached; subsequent GetConnectionAsync calls
+			// return the broken entry and fail with WSAECONNRESET once the server invalidates the
+			// socket. See beads TBO-88r for full analysis.
+			var connKey = new ConnectionKey(serverName, port);
+			ConnectionGroup? connGroup = null;
+			try
 			{
-				var authContext = this.credentialService.GetAuthContextForService(new ServicePrincipalName(ServiceClass, serverName), SecurityCapabilities.Integrity);
+				connGroup = await this.GetConnectionAsync(serverName, port, cancellationToken).ConfigureAwait(false);
+				var conn0 = connGroup.SelectConnection();
 
-				const int SpnegoRpcType = 9;
-				if (authContext == null)
-					throw new InvalidOperationException($"No credential is available for server `{serverName}`.");
-				if (authContext.RpcAuthType != SpnegoRpcType)
+				AuthClientContext CreateAuthContext()
 				{
-					SpnegoClientContext spnego = new SpnegoClientContext()
+					var authContext = this.credentialService.GetAuthContextForService(new ServicePrincipalName(ServiceClass, serverName), SecurityCapabilities.Integrity);
+
+					const int SpnegoRpcType = 9;
+					if (authContext == null)
+						throw new InvalidOperationException($"No credential is available for server `{serverName}`.");
+					if (authContext.RpcAuthType != SpnegoRpcType)
 					{
-						ChannelBinding = authContext.ChannelBinding,
-						TargetSpn = authContext.TargetSpn,
-						IsTargetSpnUntrusted = authContext.IsTargetSpnUntrusted,
-					};
-					spnego.Contexts.Add(authContext);
-					authContext = spnego;
-				}
-
-				return authContext;
-			}
-
-			// TBO may request re-auth to re-negotiate a token with required privileges.
-			const int MaxAuthAttempts = 2;
-			for (int attempt = 0; attempt < MaxAuthAttempts; attempt++)
-			{
-				var authContext = CreateAuthContext();
-				var session = await conn0.AuthenticateAsync(authContext, options.MustEncryptData, null, 0, cancellationToken).ConfigureAwait(false);
-				session.RequiredCreateOptions = this.RequiredCreateOptions;
-
-				try
-				{
-					this.traceCallback?.OnSessionAuthenticated(session);
-				}
-				catch
-				{
-					await session.LogOffAsync(cancellationToken).ConfigureAwait(false);
-					throw;
-				}
-
-				if (session.RequiresReauth)
-				{
-					await session.LogOffAsync(cancellationToken).ConfigureAwait(false);
-					continue;
-				}
-
-				this._sessions.Add(new SessionKey(new ConnectionKey(serverName, port)), session);
-
-				if (this.UseMultiChannel && conn0.Dialect >= Smb2Dialect.Smb3_1_1)
-				{
-					for (int i = 1; i < connGroup.connections.Count; i++)
-					{
-						var conn = connGroup.SelectConnection();
-						await session.EstablishNewChannel(conn, cancellationToken).ConfigureAwait(false);
+						SpnegoClientContext spnego = new SpnegoClientContext()
+						{
+							ChannelBinding = authContext.ChannelBinding,
+							TargetSpn = authContext.TargetSpn,
+							IsTargetSpnUntrusted = authContext.IsTargetSpnUntrusted,
+						};
+						spnego.Contexts.Add(authContext);
+						authContext = spnego;
 					}
+
+					return authContext;
 				}
 
-				//var conn2 = await this.ConnectToAsync(serverName, port, false, cancellationToken).ConfigureAwait(false);
-				//await conn2.AuthenticateAsync(this.credentialService.GetAuthContextForServer(ResourceTypes.Server, serverName), false, session, cancellationToken).ConfigureAwait(false);
+				// TBO may request re-auth to re-negotiate a token with required privileges.
+				const int MaxAuthAttempts = 2;
+				for (int attempt = 0; attempt < MaxAuthAttempts; attempt++)
+				{
+					var authContext = CreateAuthContext();
+					var session = await conn0.AuthenticateAsync(authContext, options.MustEncryptData, null, 0, cancellationToken).ConfigureAwait(false);
+					session.RequiredCreateOptions = this.RequiredCreateOptions;
 
-				return session;
+					try
+					{
+						this.traceCallback?.OnSessionAuthenticated(session);
+					}
+					catch
+					{
+						await session.LogOffAsync(cancellationToken).ConfigureAwait(false);
+						throw;
+					}
+
+					if (session.RequiresReauth)
+					{
+						await session.LogOffAsync(cancellationToken).ConfigureAwait(false);
+						continue;
+					}
+
+					this._sessions.Add(new SessionKey(connKey), session);
+
+					if (this.UseMultiChannel && conn0.Dialect >= Smb2Dialect.Smb3_1_1)
+					{
+						for (int i = 1; i < connGroup.connections.Count; i++)
+						{
+							var conn = connGroup.SelectConnection();
+							await session.EstablishNewChannel(conn, cancellationToken).ConfigureAwait(false);
+						}
+					}
+
+					//var conn2 = await this.ConnectToAsync(serverName, port, false, cancellationToken).ConfigureAwait(false);
+					//await conn2.AuthenticateAsync(this.credentialService.GetAuthContextForServer(ResourceTypes.Server, serverName), false, session, cancellationToken).ConfigureAwait(false);
+
+					return session;
+				}
+
+				throw new InvalidOperationException($"Unable to establish session for `{serverName}` with required privileges.");
+			}
+			catch
+			{
+				// TBO: evict half-built connection on auth failure — see beads TBO-88r.
+				// If GetConnectionAsync itself threw, connGroup is still null and nothing was added
+				// to _connections, so there's nothing to evict. Otherwise the group is cached and we
+				// must remove it (and dispose the sockets) before rethrowing so that a retry gets a
+				// fresh TCP connection instead of the dead cached one.
+				if (connGroup != null)
+				{
+					await this.EvictBrokenConnectionAsync(connKey, connGroup).ConfigureAwait(false);
+				}
+				throw;
+			}
+		}
+
+		// TBO: Added to support cache eviction when SESSION_SETUP or the re-auth loop fails after
+		// _connections.Add(...) in ConnectToAsync. Disposes every Smb2Connection in the group and
+		// removes the group from _connections. Failures during dispose are swallowed via
+		// SafeDisposeAsync so they cannot mask the original auth exception being rethrown by the
+		// caller's catch block. See beads TBO-88r.
+		private async ValueTask EvictBrokenConnectionAsync(ConnectionKey key, ConnectionGroup connGroup)
+		{
+			// Only remove the entry if it still references the same group we intend to evict.
+			// The client is single-threaded by contract, but this guard is free and defends against
+			// a concurrent caller having already replaced the entry during the async gap above.
+			if (this._connections.TryGetValue(key, out var current) && ReferenceEquals(current, connGroup))
+			{
+				this._connections.Remove(key);
 			}
 
-			throw new InvalidOperationException($"Unable to establish session for `{serverName}` with required privileges.");
+			foreach (var conn in connGroup.connections)
+			{
+				await SafeDisposeAsync(conn).ConfigureAwait(false);
+			}
+			connGroup.connections.Clear();
 		}
 		#endregion
 		#region Shares
